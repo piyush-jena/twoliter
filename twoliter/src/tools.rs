@@ -36,6 +36,12 @@ pub(crate) async fn install_tools(tools_dir: impl AsRef<Path>) -> Result<()> {
 
     let write_tasks = vec![
         write_bin(
+            "advisory-checker",
+            twoliter_tool_advisory_checker::ADVISORY_CHECKER.reader(),
+            &dir,
+            mtime,
+        ),
+        write_bin(
             "buildsys",
             twoliter_tool_buildsys::BUILDSYS.reader(),
             &dir,
@@ -152,6 +158,7 @@ async fn test_install_tools() {
     assert!(toolsdir.join("rpm2migrations").is_file());
 
     // Check that binaries were copied.
+    assert!(toolsdir.join("advisory-checker").is_file());
     assert!(toolsdir.join("buildsys").is_file());
     assert!(toolsdir.join("pipesys").is_file());
     assert!(toolsdir.join("pubsys").is_file());
