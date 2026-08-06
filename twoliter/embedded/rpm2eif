@@ -42,6 +42,7 @@ Optional:
     --with-uefi-secure-boot=yes      Rejected: EIF does not sign shim/grub.
     --with-in-place-updates=yes      Rejected: EIF is single-bank.
     --with-encrypted-storage=yes     Rejected: EIF has no PRIVATE/DATA.
+    --with-ephemeral-encryption-keys=yes  Rejected: EIF has no PRIVATE/DATA.
     --with-standalone-image=yes      Required (default). Any value other than
                                      'yes' is rejected.
 
@@ -68,6 +69,7 @@ EROFS_ROOT_PARTITION="yes"
 UEFI_SECURE_BOOT="no"
 IN_PLACE_UPDATES="no"
 ENCRYPTED_STORAGE="no"
+EPHEMERAL_ENCRYPTION_KEYS="no"
 STANDALONE_IMAGE="yes"
 
 for arg in "$@"; do
@@ -82,6 +84,7 @@ for arg in "$@"; do
         --with-uefi-secure-boot=*) UEFI_SECURE_BOOT="${arg#*=}" ;;
         --with-in-place-updates=*) IN_PLACE_UPDATES="${arg#*=}" ;;
         --with-encrypted-storage=*) ENCRYPTED_STORAGE="${arg#*=}" ;;
+        --with-ephemeral-encryption-keys=*) EPHEMERAL_ENCRYPTION_KEYS="${arg#*=}" ;;
         --with-standalone-image=*) STANDALONE_IMAGE="${arg#*=}" ;;
         *) echo "Unknown argument: ${arg}"; usage ;;
     esac
@@ -103,6 +106,7 @@ declare -A eif_flag_allowlist=(
     [UEFI_SECURE_BOOT]="no"
     [IN_PLACE_UPDATES]="no"
     [ENCRYPTED_STORAGE]="no"
+    [EPHEMERAL_ENCRYPTION_KEYS]="no"
     [STANDALONE_IMAGE]="yes"
 )
 declare -A eif_flag_names=(
@@ -111,6 +115,7 @@ declare -A eif_flag_names=(
     [UEFI_SECURE_BOOT]="uefi-secure-boot"
     [IN_PLACE_UPDATES]="in-place-updates"
     [ENCRYPTED_STORAGE]="encrypted-storage"
+    [EPHEMERAL_ENCRYPTION_KEYS]="ephemeral-encryption-keys"
     [STANDALONE_IMAGE]="standalone-image"
 )
 eif_flag_errors=0
