@@ -121,6 +121,24 @@ pub fn extract_bootconfig<R: Read + Seek>(
     disk: &mut R,
     partitions: &PartitionLayout,
 ) -> Result<Vec<u8>> {
+    // Try the BOOT-A partition first (ephemeral-encryption-keys layout).
+    let boot_start = partitions.boot_a.offset_bytes();
+    let boot_size = partitions.boot_a.size_bytes() as usize;
+
+    disk.seek(SeekFrom::Start(boot_start))
+        .whatever_context("failed to seek to BOOT-A")?;
+
+    let mut boot_data = vec![0u8; boot_size];
+    disk.read_exact(&mut boot_data)
+        .whatever_context("failed to read BOOT-A")?;
+
+    if let Ok(fs) = Ext4::load(Box::new(boot_data)) {
+        if let Ok(contents) = fs.read("/bootconfig.data") {
+            return Ok(contents);
+        }
+    }
+
+    // Fall back to the PRIVATE partition (default, non-ephemeral layout).
     let start = partitions.private.offset_bytes();
     let size = partitions.private.size_bytes() as usize;
 
