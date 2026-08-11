@@ -115,8 +115,8 @@ included-packages = ["release"]
 ```
 
 `image-format` is the desired format for the built images.
-This can be `raw` (the default), `vmdk`, `qcow2`, or `eif`
-(AWS Nitro Enclaves Image Format).
+This can be `raw` (the default), `vmdk`, `qcow2`, `eif`
+(AWS Nitro Enclaves Image Format), or `uki` (Unified Kernel Image).
 
 When `image-format = "eif"`, the image pipeline switches to `rpm2eif`,
 which produces a dm-verity-protected, single-bank sidecar EIF plus a
@@ -975,12 +975,35 @@ pub struct BuildVariant {
     pub flavor: Option<String>,
 }
 
+/// The image format for a variant, i.e. `image-format` in the manifest.
+///
+/// This is deliberately *not* an [`ImageFeature`]: the format is a single
+/// exclusive choice, not a set of independently toggled features. That
+/// separation is preserved at runtime, where the built image carries
+/// `/usr/share/bottlerocket/image-format.env` alongside (and separate from)
+/// `/usr/share/bottlerocket/image-features.env`. Like `image-features.env`,
+/// `image-format.env` is written unconditionally for every image format, so a
+/// consumer never has to treat file absence as meaningful:
+///
+/// | Key            | Values                                | Notes                                    |
+/// |----------------|---------------------------------------|------------------------------------------|
+/// | `IMAGE_FORMAT` | `raw`, `qcow2`, `vmdk`, `eif`, `uki`  | The lowercase manifest value.            |
+/// | `UKI_IMAGE`    | `true` / `false`                      | Convenience boolean for `IMAGE_FORMAT=uki`. |
+///
+/// Mind the value convention, which matches `image-features.env`: the build
+/// scripts pass the format around as a `yes`/`no` shell variable (e.g.
+/// `--with-uki-image=yes`, `UKI_IMAGE="yes"` in `twoliter/embedded/rpm2img`),
+/// but the runtime file uses `true`/`false` so it is parseable by
+/// configuration loaders. The `yes`/`no` spelling must not leak into the
+/// runtime file. See `twoliter/embedded/rpm2img` and
+/// `twoliter/embedded/rpm2eif` for the writers.
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ImageFormat {
     Eif,
     Qcow2,
     Raw,
+    Uki,
     Vmdk,
 }
 
@@ -1205,6 +1228,20 @@ pub fn validate_image_features(
     image_format: Option<&ImageFormat>,
 ) -> Result<()> {
     let is_eif = matches!(image_format, Some(ImageFormat::Eif));
+
+    // UKI images have no B partition set, so in-place updates are impossible.
+    if matches!(image_format, Some(ImageFormat::Uki))
+        && features.contains(&ImageFeature::InPlaceUpdates)
+    {
+        return error::IncompatibleImageFeaturesSnafu {
+            context: "`image-format = \"uki\"`",
+            reason: "\n  - `in-place-updates`: in-place updates require two banks of OS \
+                     partitions (A/B); a UKI image has no B partition set"
+                .to_string(),
+        }
+        .fail()?;
+    }
+
     // Without `standalone-image` enabled *and* a non-EIF format, every
     // combination is legal (full Bottlerocket image).
     if !features.contains(&ImageFeature::StandaloneImage) && !is_eif {
@@ -1360,6 +1397,9 @@ impl TryFrom<String> for ImageFeature {
 /// value directly to `--with-standalone-image=`. See
 /// `tools/buildsys/src/builder.rs`, `twoliter/embedded/build.Dockerfile`,
 /// and `twoliter/embedded/rpm2img` for the conversions between layers.
+///
+/// The image *format* is not a feature and is not recorded here; it is written
+/// to a separate runtime file, `image-format.env`. See [`ImageFormat`].
 impl fmt::Display for ImageFeature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -2058,6 +2098,51 @@ image-format = "eif"
         assert!(matches!(resolved.partition_plan, PartitionPlan::Unified));
     }
 
+    // ---------------------------------------------------------------------
+    // `image-format = "uki"` validation tests.
+    //
+    // UKI images have no B partition set, so in-place updates are
+    // incompatible. Other feature combinations remain legal.
+    // ---------------------------------------------------------------------
+
+    #[test]
+    fn uki_format_rejects_in_place_updates() {
+        // `in-place-updates` requires two banks of OS partitions (A/B); a
+        // UKI image has no B partition set.
+        let layout = ImageLayout::default();
+        let features = HashSet::from([ImageFeature::InPlaceUpdates]);
+        let err = validate_image_features(&features, &layout, Some(&ImageFormat::Uki))
+            .expect_err("UKI + in-place-updates must fail validation");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("image-format = \"uki\""),
+            "wrong prefix: {msg}"
+        );
+        assert!(
+            msg.contains("in-place-updates"),
+            "missing feature name: {msg}"
+        );
+    }
+
+    #[test]
+    fn uki_format_without_in_place_updates_passes() {
+        // A UKI variant without in-place-updates should validate fine.
+        let layout = ImageLayout::default();
+        let features = HashSet::from([ImageFeature::UefiSecureBoot]);
+        validate_image_features(&features, &layout, Some(&ImageFormat::Uki))
+            .expect("UKI without in-place-updates should validate");
+    }
+
+    #[test]
+    fn raw_format_with_in_place_updates_passes() {
+        // `image-format = "raw"` (the default) must still allow in-place
+        // updates — only UKI restricts them.
+        let layout = ImageLayout::default();
+        let features = HashSet::from([ImageFeature::InPlaceUpdates]);
+        validate_image_features(&features, &layout, Some(&ImageFormat::Raw))
+            .expect("raw + in-place-updates should validate");
+    }
+
     /// `build_type()` returns `BuildType::Variant` and `guest_images()` round-trips when the
     /// manifest carries a `[package.metadata.build-variant]` section with `guest-images`.
     #[test]
@@ -2218,6 +2303,7 @@ version = "0.1.0"
             Some(&ImageFormat::Raw),
             Some(&ImageFormat::Qcow2),
             Some(&ImageFormat::Vmdk),
+            Some(&ImageFormat::Uki),
         ] {
             validate_guest_image_entries("host-variant", &map, fmt).unwrap_or_else(|e| {
                 panic!("image-format {fmt:?} must accept guest-images, got error: {e}")
