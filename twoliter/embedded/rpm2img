@@ -639,6 +639,26 @@ else
 fi
 dd if="${VERITY_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff["HASH-A"]}"
 
+# Combine any bootconfig snippets in /boot for later use, then clean up.
+if [[ -d "${BOOT_MOUNT}/boot-config.d" ]]; then
+  # Verify all bootconfig snippets are single-line key=value format
+  if grep -E '^\s*[^#].*([:+]=|[{]|[,]\s*$)' "${BOOT_MOUNT}/boot-config.d"/* 2>/dev/null; then
+    echo "ERROR: bootconfig snippets must be single-line 'key = value' format" >&2
+    echo "Unsupported: braces, multi-line arrays, := and += operators" >&2
+    exit 1
+  fi
+
+  # Concatenate and sort snippets to ensure consistent ordering
+  find "${BOOT_MOUNT}/boot-config.d" -type f -mindepth 1 -maxdepth 1 -print0 |
+    xargs -0 cat | sort >"${BOOTCONFIG_INPUT}"
+  rm -rf "${BOOT_MOUNT}/boot-config.d"
+fi
+
+# Generate a no-op bootconfig if there weren't any snippets.
+if [[ ! -s "${BOOTCONFIG_INPUT}" ]]; then
+  echo -e "kernel {}\ninit {}" >"${BOOTCONFIG_INPUT}"
+fi
+
 # Assemble UKI with ukify if UKI_IMAGE mode
 if [[ "${UKI_IMAGE}" == "yes" ]]; then
   # Find systemd-stub from uki-stub package
@@ -657,17 +677,14 @@ if [[ "${UKI_IMAGE}" == "yes" ]]; then
     exit 1
   fi
 
-  # Build cmdline EXACTLY mirroring grub.cfg
-  # bootconfig is not yet supported for UKI images: there is no mechanism to
-  # attach the runtime-generated bootconfig.data blob as with GRUB's `initrd`
-  # directive, so requesting it only produces a kernel warning at boot.
-  uki_bootconfig=""
+  uki_bootconfig="$(sed -n -E 's/^[[:space:]]*kernel\.(.+)$/\1/p' "${BOOTCONFIG_INPUT}" | sed -E 's/[[:space:]]*=[[:space:]]*/=/' | paste -sd ' ' -)"
+  uki_init_bootconfig="$(sed -n -E 's/^[[:space:]]*init\.(.+)$/\1/p' "${BOOTCONFIG_INPUT}" | sed -E 's/[[:space:]]*=[[:space:]]*/=/' | paste -sd ' ' -)"
 
   # The escaped quotes around the verity table are intentional: the kernel's
   # dm-mod.create= value contains spaces, so the literal quote characters must
   # be part of the command line itself (this mirrors grub.cfg).
   # shellcheck disable=SC2016
-  uki_cmdline="${KERNEL_PARAMETERS} ${uki_bootconfig} root=/dev/dm-0 rootwait ro raid=noautodetect random.trust_cpu=on selinux=1 enforcing=1 dm-mod.create=\"${DM_VERITY_ROOT[*]}\" -- systemd.log_target=journal-or-kmsg systemd.log_color=0 systemd.show_status=true"
+  uki_cmdline="${KERNEL_PARAMETERS} ${uki_bootconfig} root=/dev/dm-0 rootwait ro raid=noautodetect random.trust_cpu=on selinux=1 enforcing=1 dm-mod.create=\"${DM_VERITY_ROOT[*]}\" -- ${uki_init_bootconfig} systemd.log_target=journal-or-kmsg systemd.log_color=0 systemd.show_status=true"
 
   # Create EFI/Linux directory for UKI
   mkdir -p "${BOOT_MOUNT}/EFI/Linux"
@@ -740,26 +757,6 @@ EOF
   if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
     sign_grubcfg "${BOOT_MOUNT}/grub/grub.cfg"
   fi
-fi
-
-# Combine any bootconfig snippets in /boot for later use, then clean up.
-if [[ -d "${BOOT_MOUNT}/boot-config.d" ]]; then
-  # Verify all bootconfig snippets are single-line key=value format
-  if grep -E '^\s*[^#].*([:+]=|[{]|[,]\s*$)' "${BOOT_MOUNT}/boot-config.d"/* 2>/dev/null; then
-    echo "ERROR: bootconfig snippets must be single-line 'key = value' format" >&2
-    echo "Unsupported: braces, multi-line arrays, := and += operators" >&2
-    exit 1
-  fi
-
-  # Concatenate and sort snippets to ensure consistent ordering
-  find "${BOOT_MOUNT}/boot-config.d" -type f -mindepth 1 -maxdepth 1 -print0 |
-    xargs -0 cat | sort >"${BOOTCONFIG_INPUT}"
-  rm -rf "${BOOT_MOUNT}/boot-config.d"
-fi
-
-# Generate a no-op bootconfig if there weren't any snippets.
-if [[ ! -s "${BOOTCONFIG_INPUT}" ]]; then
-  echo -e "kernel {}\ninit {}" >"${BOOTCONFIG_INPUT}"
 fi
 
 # BOTTLEROCKET-BOOT-A
