@@ -138,6 +138,54 @@ pub fn extract_bootconfig<R: Read + Seek>(
         .whatever_context("failed to read bootconfig.data")
 }
 
+/// Extract the UKI (Unified Kernel Image) PE from a UKI image's BOOT-A partition.
+///
+/// UKI images use a FAT BOOT-A partition holding the signed PE at
+/// `/EFI/Linux/bottlerocket.efi`; GRUB images instead use an ext4 BOOT-A with
+/// `grub.cfg`/`vmlinuz`. This function is therefore also the UKI/GRUB
+/// discriminator: it returns
+/// - `Ok(Some(bytes))` when a UKI PE is present (a UKI image),
+/// - `Ok(None)` when BOOT-A is not FAT or the UKI path is absent (a GRUB image),
+/// - `Err(_)` only on unexpected I/O errors reading the partition.
+pub fn extract_uki<R: Read + Seek>(
+    disk: &mut R,
+    partitions: &PartitionLayout,
+) -> Result<Option<Vec<u8>>> {
+    let start = partitions.boot_a.offset_bytes();
+    let size = partitions.boot_a.size_bytes() as usize;
+
+    disk.seek(SeekFrom::Start(start))
+        .whatever_context("failed to seek to BOOT-A")?;
+
+    let mut partition_data = vec![0u8; size];
+    disk.read_exact(&mut partition_data)
+        .whatever_context("failed to read BOOT-A")?;
+
+    // A GRUB BOOT-A is ext4, which is not a valid FAT filesystem: treat a mount
+    // failure (or any missing directory/file) as "not a UKI image".
+    let cursor = Cursor::new(partition_data);
+    let fs = match FileSystem::new(cursor, FsOptions::new()) {
+        Ok(fs) => fs,
+        Err(_) => return Ok(None),
+    };
+
+    let root = fs.root_dir();
+    let uki_file = root
+        .open_dir("EFI")
+        .and_then(|efi| efi.open_dir("Linux"))
+        .and_then(|linux| linux.open_file("bottlerocket.efi"));
+
+    let mut file = match uki_file {
+        Ok(file) => file,
+        Err(_) => return Ok(None),
+    };
+
+    let mut contents = Vec::new();
+    file.read_to_end(&mut contents)
+        .whatever_context("failed to read UKI bottlerocket.efi")?;
+    Ok(Some(contents))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

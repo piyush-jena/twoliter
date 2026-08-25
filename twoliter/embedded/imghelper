@@ -768,19 +768,80 @@ sign_vmlinuz() {
   do_sign "${vmlinuz}" "${SBKEYS}/vendor.cer" CODE_SIGN_KEY
 }
 
-# bootconfig is not yet supported for UKI images. Until that support exists,
-# the systemd and (for FIPS variants) FIPS bootconfig snippets shipped by
-# the core kit are hard-coded here as literal cmdline tokens. FIPS-ness is
-# derived from the variant name, which always ends in the `-fips` suffix for
-# FIPS variants.
-uki_bootconfig_cmdline() {
-  local variant tokens
-  variant="${1:?}"
-  tokens="SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST=25 module_blacklist=i8042"
-  if [[ "${variant}" == *-fips ]]; then
-    tokens="${tokens} fips=1 init.systemd.unit=fipscheck.target"
-  fi
-  echo "${tokens}"
+# Bootconfig tokens for UKI images, DERIVED FROM the boot-config.d drop-in
+# snippets shipped in the image at build time -- the SAME files the GRUB path
+# concatenates into bootconfig.data and loads at runtime. This is the single
+# source of truth (spec C5/AC-9): both boot paths consume the on-image
+# /boot/boot-config.d/*.conf snippets, so the token set cannot drift and no
+# token is hard-coded in two places.
+#
+# A UKI cannot attach bootconfig.data to its boot chain, so we render the
+# snippets into literal cmdline tokens here and bake them into the .cmdline PE
+# section. The rendering mirrors lib/bootconfig.c `xbc_snprint_cmdline`: the
+# kernel PREPENDS `kernel.*` snippet values to the front of /proc/cmdline and
+# inserts `init.*` values just after the `--` separator, in each case stripping
+# the `kernel.`/`init.` prefix and normalising `key = value` to `key=value`.
+# Token order follows the kernel's xbc tree, which is the sorted order of the
+# concatenated snippet lines -- exactly how the GRUB build assembles
+# bootconfig.data below (`... | sort > bootconfig.data`).
+#
+# Which snippets are present depends on the platform / image-features baked into
+# the image, so reading the files means those tokens are picked up automatically
+# from their mere presence -- no variant-name inference is needed. Examples:
+#   * kernel kit  05-aws.conf   -> kernel.module_blacklist = i8042  (aws platform)
+#   * systemd     20-*, 21-*    -> kernel.SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST,
+#                                   kernel.SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE
+#   * release     10-fips.conf  -> kernel.fips=1, init.systemd.unit=fipscheck.target
+#                                   (only when the `fips` image-feature is set)
+#
+# Canonical home of `module_blacklist=i8042`: the kernel kit's platform
+# bootconfig snippet (05-aws.conf), which ships to EVERY aws-platform variant
+# (aws-ecs-4 included). It is therefore a bootconfig token here, not a hard-coded
+# one; the redundant copy in aws-mantle-1's `kernel-parameters` is removed by T10.
+
+# Render the boot-config.d snippets in ${1} into UKI cmdline tokens for the
+# ${2} section ("kernel" or "init"). Emits space-separated `KEY=value` tokens in
+# the kernel's xbc tree order (= the sorted order of the concatenated snippet
+# lines, matching how the GRUB build assembles bootconfig.data). Empty when the
+# directory is absent or has no snippets for the requested section.
+render_bootconfig_cmdline() {
+  local dir section line key val out
+  dir="${1:?}"
+  section="${2:?}"
+  [[ -d "${dir}" ]] || return 0
+  out=""
+  # Concatenate + sort the snippet lines exactly as the GRUB build does when it
+  # produces bootconfig.data, so token order matches the kernel's xbc tree.
+  while IFS= read -r line; do
+    # Skip blank lines and comments.
+    [[ -z "${line//[[:space:]]/}" || "${line}" == \#* ]] && continue
+    key="${line%%=*}"
+    val="${line#*=}"
+    # Normalise `key = value` to `key=value` (xbc collapses the whitespace).
+    key="${key//[[:space:]]/}"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    # Only emit tokens for the requested section, stripping its prefix.
+    case "${key}" in
+    "${section}".*) out="${out}${key#"${section}".}=${val} " ;;
+    esac
+  done < <(find "${dir}" -mindepth 1 -maxdepth 1 -type f -print0 |
+    xargs -0 cat 2>/dev/null | sort)
+  # Trim the single trailing space.
+  echo "${out% }"
+}
+
+# Kernel-section bootconfig tokens (prepended to the front of the cmdline).
+# ${1} is the boot-config.d directory present in the image.
+uki_bootconfig_kernel_cmdline() {
+  render_bootconfig_cmdline "${1:?}" kernel
+}
+
+# Init-section bootconfig tokens (inserted just after the `--` separator, with
+# the `init.` prefix stripped). Empty when there are no init.* snippets.
+# ${1} is the boot-config.d directory present in the image.
+uki_bootconfig_init_cmdline() {
+  render_bootconfig_cmdline "${1:?}" init
 }
 
 sign_systemd_boot() {

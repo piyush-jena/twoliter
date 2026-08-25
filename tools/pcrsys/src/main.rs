@@ -173,6 +173,27 @@ fn predict_pcrs(
     let gpt_bin = gpt::extract_primary_gpt(disk)?;
     let partitions = gpt::find_partitions(disk)?;
     let shim = diskfs::extract_shim(disk, &partitions)?;
+
+    // Detect a UKI image (FAT BOOT-A carrying /EFI/Linux/bottlerocket.efi) vs a
+    // GRUB image (ext4 BOOT-A with grub.cfg/vmlinuz). For UKI, PCR 9 is measured
+    // by the Linux kernel EFI stub from the LoadOptions (command line) and the
+    // systemd-stub-synthesized initrd, so predict it from the UKI PE sections
+    // directly rather than reconstructing from grub.cfg + bootconfig.
+    if let Some(uki) = diskfs::extract_uki(disk, &partitions)? {
+        let ctx = PcrContext::builder()
+            .platform(platform)
+            .efi_vars(efi_vars)
+            .partitions(&partitions)
+            .gpt_bin(&gpt_bin)
+            .shim(&shim)
+            .uki(&uki)
+            .build();
+
+        // Only PCR 9 (kernel command line) is currently predicted for UKI; the
+        // measurement models for the other PCRs on UKI are out of scope here.
+        return PcrPredictions::new().try_extend(|| pcrs::pcr9::predict(&ctx));
+    }
+
     let grub = diskfs::extract_grub(disk, &partitions)?;
     let vmlinuz = diskfs::extract_vmlinuz(disk, &partitions)?;
     let grub_cfg = diskfs::extract_grub_cfg(disk, &partitions)?;

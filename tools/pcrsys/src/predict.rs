@@ -67,6 +67,11 @@ pub struct PcrContext<'a> {
     pub bootconfig: &'a [u8],
     #[builder(default)]
     pub boot_partuuid: &'a str,
+    /// UKI PE image (systemd-boot Unified Kernel Image). Empty for GRUB images.
+    /// When non-empty, PCR 9 is predicted from the embedded `.cmdline` section
+    /// rather than reconstructed from grub.cfg + bootconfig.
+    #[builder(default)]
+    pub uki: &'a [u8],
 }
 
 /// Collection of PCR predictions for JSON output.

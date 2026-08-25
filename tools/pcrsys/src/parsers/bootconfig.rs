@@ -6,13 +6,31 @@ use pest::Parser;
 use pest_derive::Parser;
 use snafu::{whatever, ResultExt};
 
+/// A single bootconfig entry: a fully-composed key plus its ordered
+/// list of values.
+///
+/// An **empty** `values` vector denotes a *value-less* key (rendered by
+/// `xbc_snprint_cmdline` as `key ` with no `=`). A key with one or more
+/// values is either a scalar (one value) or an array (multiple values);
+/// arrays are preserved element-by-element so the renderer can emit one
+/// repeated `key=value ` token per element, exactly as the kernel's
+/// `xbc_snprint_cmdline()` does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BootEntry {
+    /// Fully-composed key with the `kernel.`/`init.` prefix stripped and
+    /// any nested block names joined with `.`.
+    pub key: String,
+    /// Ordered values for the key. Empty = value-less key.
+    pub values: Vec<String>,
+}
+
 /// Parsed bootconfig parameters split by prefix.
 #[derive(Debug, Default)]
 pub struct BootconfigParams {
     /// kernel.* parameters (prefix stripped).
-    pub kernel: Vec<(String, String)>,
+    pub kernel: Vec<BootEntry>,
     /// init.* parameters (prefix stripped).
-    pub init: Vec<(String, String)>,
+    pub init: Vec<BootEntry>,
 }
 
 #[derive(Parser)]
@@ -71,8 +89,13 @@ fn extract_text(data: &[u8]) -> Result<&str> {
         .whatever_context("bootconfig text is not valid UTF-8")
 }
 
-/// Extract value text, handling quoted strings and arrays.
-fn extract_value(pair: Pair<'_, BootconfigRule>) -> String {
+/// Extract value elements, handling quoted strings and arrays.
+///
+/// Returns one `String` per array element (a scalar yields a single
+/// element). Quotes are stripped from each individual element; array
+/// elements are **not** joined so the renderer can faithfully emit one
+/// repeated `key=value ` token per element.
+fn extract_value(pair: Pair<'_, BootconfigRule>) -> Vec<String> {
     let mut values = Vec::new();
     for item in pair.into_inner() {
         let s = item.as_str();
@@ -82,9 +105,9 @@ fn extract_value(pair: Pair<'_, BootconfigRule>) -> String {
             .and_then(|s| s.strip_suffix('"'))
             .or_else(|| s.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
             .unwrap_or(s);
-        values.push(v);
+        values.push(v.to_string());
     }
-    values.join(",")
+    values
 }
 
 /// Process a pair or bool_key, adding to params with the given prefix.
@@ -101,9 +124,15 @@ fn process_entry(pair: Pair<'_, BootconfigRule>, prefix: &str, params: &mut Boot
             let value = inner.next().map(extract_value).unwrap_or_default();
 
             if let Some(rest) = full_key.strip_prefix("kernel.") {
-                params.kernel.push((rest.to_string(), value));
+                params.kernel.push(BootEntry {
+                    key: rest.to_string(),
+                    values: value,
+                });
             } else if let Some(rest) = full_key.strip_prefix("init.") {
-                params.init.push((rest.to_string(), value));
+                params.init.push(BootEntry {
+                    key: rest.to_string(),
+                    values: value,
+                });
             }
         }
         BootconfigRule::bool_key => {
@@ -115,9 +144,15 @@ fn process_entry(pair: Pair<'_, BootconfigRule>, prefix: &str, params: &mut Boot
             };
 
             if let Some(rest) = full_key.strip_prefix("kernel.") {
-                params.kernel.push((rest.to_string(), String::new()));
+                params.kernel.push(BootEntry {
+                    key: rest.to_string(),
+                    values: Vec::new(),
+                });
             } else if let Some(rest) = full_key.strip_prefix("init.") {
-                params.init.push((rest.to_string(), String::new()));
+                params.init.push(BootEntry {
+                    key: rest.to_string(),
+                    values: Vec::new(),
+                });
             }
         }
         BootconfigRule::block => {
@@ -160,21 +195,70 @@ pub fn parse(data: &[u8]) -> Result<BootconfigParams> {
     parse_text(text)
 }
 
-/// Format bootconfig parameters as kernel command line fragment.
+/// Return `true` iff `val` contains one of the ASCII characters the
+/// kernel tests for with `strpbrk(val, " \t\r\n")`.
 ///
-/// Uses xbc_snprint_cmdline() rules: `key=value ` with trailing space,
-/// values with whitespace are quoted.
-pub fn format_params(params: &[(String, String)]) -> String {
-    params
-        .iter()
-        .map(|(k, v)| {
-            if v.contains(char::is_whitespace) {
-                format!("{k}=\"{v}\" ")
-            } else {
-                format!("{k}={v} ")
+/// This is deliberately **not** Rust's Unicode-aware
+/// `char::is_whitespace` (constraint C2): only the four ASCII bytes
+/// space, tab, carriage-return and line-feed trigger quoting, so a
+/// value containing e.g. U+00A0 (non-breaking space) is left unquoted,
+/// exactly as `lib/bootconfig.c` does.
+fn needs_quote(val: &str) -> bool {
+    val.bytes()
+        .any(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+}
+
+/// Faithful Rust port of the Linux kernel's `xbc_snprint_cmdline()`
+/// (`lib/bootconfig.c`).
+///
+/// The kernel walks every leaf key in order and, for each, composes the
+/// full dotted key (`xbc_node_compose_key_after`) and then:
+///
+///   * for a **value-less** key (empty `values`), emits `key ` — the key
+///     followed by a single space, with **no** `=`;
+///   * otherwise iterates the key's values (`xbc_array_for_each_value`)
+///     and, for each value, emits `key=<q>value<q> ` via
+///     `snprintf("%s=%s%s%s ", key, q, val, q)`, where `<q>` is a double
+///     quote iff `strpbrk(val, " \t\r\n")` is non-NULL (see
+///     [`needs_quote`]) and empty otherwise. Every token is terminated
+///     by a single trailing space.
+///
+/// An array value therefore renders as repeated `key=value ` tokens —
+/// one per element — never a comma-joined single token.
+///
+/// `BootEntry::key` is expected to already be fully composed (nested
+/// block names joined with `.`), which the parser handles when building
+/// the entries, so this function mirrors the kernel loop directly.
+pub fn xbc_snprint_cmdline(entries: &[BootEntry]) -> String {
+    let mut out = String::new();
+    for entry in entries {
+        if entry.values.is_empty() {
+            // Value-less key: `key ` (no `=`).
+            out.push_str(&entry.key);
+            out.push(' ');
+        } else {
+            // One `key=<q>val<q> ` token per value (arrays repeat the key).
+            for val in &entry.values {
+                let q = if needs_quote(val) { "\"" } else { "" };
+                out.push_str(&entry.key);
+                out.push('=');
+                out.push_str(q);
+                out.push_str(val);
+                out.push_str(q);
+                out.push(' ');
             }
-        })
-        .collect()
+        }
+    }
+    out
+}
+
+/// Format bootconfig parameters as a kernel command line fragment.
+///
+/// Thin wrapper around the [`xbc_snprint_cmdline`] port so existing call
+/// sites (`pcr9.rs`) keep a stable name while the rendering logic lives
+/// in one faithful kernel-mirroring function.
+pub fn format_params(params: &[BootEntry]) -> String {
+    xbc_snprint_cmdline(params)
 }
 
 #[cfg(test)]
@@ -237,22 +321,19 @@ mod tests {
     #[test_case("kernel.FOO = bar;", "FOO", "bar" ; "semicolon_terminated")]
     fn test_parse_text_kernel(input: &str, key: &str, value: &str) {
         let params = parse_text(input).unwrap();
-        assert_eq!(params.kernel, vec![(key.to_string(), value.to_string())]);
+        assert_eq!(params.kernel, vec![entry(key, &[value])]);
     }
 
     #[test_case("init.BAZ = qux", "BAZ", "qux" ; "init_simple")]
     fn test_parse_text_init(input: &str, key: &str, value: &str) {
         let params = parse_text(input).unwrap();
-        assert_eq!(params.init, vec![(key.to_string(), value.to_string())]);
+        assert_eq!(params.init, vec![entry(key, &[value])]);
     }
 
     #[test]
     fn test_parse_text_array() {
         let params = parse_text("kernel.mods = a, b, c").unwrap();
-        assert_eq!(
-            params.kernel,
-            vec![("mods".to_string(), "a,b,c".to_string())]
-        );
+        assert_eq!(params.kernel, vec![entry("mods", &["a", "b", "c"])]);
     }
 
     #[test]
@@ -260,24 +341,21 @@ mod tests {
         let input = "kernel {\n  foo = bar\n  baz = qux\n}";
         let params = parse_text(input).unwrap();
         assert_eq!(params.kernel.len(), 2);
-        assert_eq!(params.kernel[0], ("foo".to_string(), "bar".to_string()));
-        assert_eq!(params.kernel[1], ("baz".to_string(), "qux".to_string()));
+        assert_eq!(params.kernel[0], entry("foo", &["bar"]));
+        assert_eq!(params.kernel[1], entry("baz", &["qux"]));
     }
 
     #[test]
     fn test_parse_text_nested_block() {
         let input = "kernel {\n  sub {\n    foo = bar\n  }\n}";
         let params = parse_text(input).unwrap();
-        assert_eq!(
-            params.kernel,
-            vec![("sub.foo".to_string(), "bar".to_string())]
-        );
+        assert_eq!(params.kernel, vec![entry("sub.foo", &["bar"])]);
     }
 
     #[test]
     fn test_parse_text_bool_key() {
         let params = parse_text("init.splash").unwrap();
-        assert_eq!(params.init, vec![("splash".to_string(), String::new())]);
+        assert_eq!(params.init, vec![entry("splash", &[])]);
     }
 
     #[test]
@@ -285,8 +363,8 @@ mod tests {
         let input = "init {\n  splash\n  quiet\n}";
         let params = parse_text(input).unwrap();
         assert_eq!(params.init.len(), 2);
-        assert_eq!(params.init[0], ("splash".to_string(), String::new()));
-        assert_eq!(params.init[1], ("quiet".to_string(), String::new()));
+        assert_eq!(params.init[0], entry("splash", &[]));
+        assert_eq!(params.init[1], entry("quiet", &[]));
     }
 
     #[test]
@@ -309,22 +387,112 @@ init {
         let params = parse_text(input).unwrap();
         assert_eq!(
             params.kernel,
-            vec![(
-                "root".to_string(),
-                "01234567-89ab-cdef-0123-456789abcd".to_string()
-            )]
+            vec![entry("root", &["01234567-89ab-cdef-0123-456789abcd"])]
         );
-        assert_eq!(params.init, vec![("splash".to_string(), String::new())]);
+        assert_eq!(params.init, vec![entry("splash", &[])]);
     }
 
     #[test_case(&[("FOO", "bar")], "FOO=bar " ; "simple")]
     #[test_case(&[("MULTI", "with spaces")], "MULTI=\"with spaces\" " ; "quoted")]
     #[test_case(&[("A", "1"), ("B", "2")], "A=1 B=2 " ; "multiple")]
     fn test_format_params(input: &[(&str, &str)], expected: &str) {
-        let params: Vec<_> = input
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect();
+        let params: Vec<_> = input.iter().map(|(k, v)| entry(k, &[v])).collect();
         assert_eq!(format_params(&params), expected);
+    }
+
+    // ------------------------------------------------------------------
+    // T01: xbc_snprint_cmdline() kernel-reference vectors.
+    //
+    // These encode the exact rules of the Linux kernel's
+    // xbc_snprint_cmdline() (lib/bootconfig.c) and target the corrected
+    // renderer + value model landing in T02-T03. They are expected to
+    // FAIL (against the not-yet-existing `BootEntry` model and
+    // `xbc_snprint_cmdline()` function) until those tasks are complete.
+    //
+    // Kernel rules (see spec Constraints C1/C2):
+    //   * value-less key            -> "key "         (no '=')
+    //   * scalar w/o ` \t\r\n`      -> "key=val "     (unquoted)
+    //   * scalar with ` \t\r\n`     -> "key=\"val\" " (quoted)
+    //   * array [a, b, c]           -> "key=a key=b key=c " (repeated)
+    //   * quoting tests ONLY the ASCII set { space, tab, \r, \n }
+    //     (NOT Unicode char::is_whitespace, so U+00A0 stays unquoted)
+    // ------------------------------------------------------------------
+
+    /// Build a `BootEntry` for the renderer tests. An empty `values`
+    /// slice denotes a value-less key.
+    fn entry(key: &str, values: &[&str]) -> BootEntry {
+        BootEntry {
+            key: key.to_string(),
+            values: values.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn xbc_valueless_key_has_no_equals() {
+        // AC-1: value-less key renders as "key " with no '='.
+        assert_eq!(xbc_snprint_cmdline(&[entry("splash", &[])]), "splash ");
+    }
+
+    #[test]
+    fn xbc_unquoted_scalar() {
+        // AC-2: value without ` \t\r\n` renders unquoted.
+        assert_eq!(xbc_snprint_cmdline(&[entry("FOO", &["bar"])]), "FOO=bar ");
+    }
+
+    #[test]
+    fn xbc_quoted_space_value() {
+        // AC-2: value containing a space is double-quoted.
+        assert_eq!(
+            xbc_snprint_cmdline(&[entry("MULTI", &["with spaces"])]),
+            "MULTI=\"with spaces\" "
+        );
+    }
+
+    #[test_case("\t" ; "tab")]
+    #[test_case("\r" ; "carriage_return")]
+    #[test_case("\n" ; "line_feed")]
+    fn xbc_quotes_each_ascii_whitespace(ws: &str) {
+        // AC-2: each of tab, CR, LF triggers quoting (strpbrk set).
+        let val = format!("a{ws}b");
+        assert_eq!(
+            xbc_snprint_cmdline(&[entry("K", &[&val])]),
+            format!("K=\"{val}\" ")
+        );
+    }
+
+    #[test]
+    fn xbc_array_repeats_key() {
+        // AC-3: array renders as one repeated key token per element,
+        // NOT a single comma-joined value.
+        assert_eq!(
+            xbc_snprint_cmdline(&[entry("mods", &["a", "b", "c"])]),
+            "mods=a mods=b mods=c "
+        );
+    }
+
+    #[test]
+    fn xbc_non_ascii_space_not_quoted() {
+        // AC-4: U+00A0 (non-breaking space) is NOT in { space, tab,
+        // \r, \n }, so the value must NOT be quoted (matches kernel
+        // strpbrk, unlike Rust's Unicode char::is_whitespace).
+        assert_eq!(
+            xbc_snprint_cmdline(&[entry("NB", &["a\u{00A0}b"])]),
+            "NB=a\u{00A0}b "
+        );
+    }
+
+    #[test]
+    fn xbc_multiple_entries_and_forms() {
+        // Combined: value-less + scalar + array + quoted, in order.
+        let entries = [
+            entry("quiet", &[]),
+            entry("root", &["UUID=abc"]),
+            entry("mods", &["x", "y"]),
+            entry("msg", &["hello world"]),
+        ];
+        assert_eq!(
+            xbc_snprint_cmdline(&entries),
+            "quiet root=UUID=abc mods=x mods=y msg=\"hello world\" "
+        );
     }
 }

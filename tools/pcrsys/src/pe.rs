@@ -95,6 +95,43 @@ pub fn extract_sbat_level(pe_data: &[u8]) -> Result<Vec<u8>> {
     Ok(section_data[HEADER_SIZE..end].to_vec())
 }
 
+/// Extract the kernel command line from a UKI's `.cmdline` PE section.
+///
+/// systemd-stub measures the contents of this section (its virtual size, i.e.
+/// the exact command-line bytes `ukify --cmdline` embedded, with no trailing
+/// NUL or file-alignment padding) into PCR 9 at boot. `object`'s section
+/// `data()` returns `min(virtual_size, size_of_raw_data)` bytes, so this yields
+/// precisely the command-line string that was embedded.
+pub fn extract_cmdline(pe_data: &[u8]) -> Result<Vec<u8>> {
+    Ok(get_section_data(pe_data, ".cmdline")?.to_vec())
+}
+
+/// Get raw data from a named PE section, returning `None` if the section is
+/// absent (as opposed to [`get_section_data`], which errors on a missing
+/// section).
+///
+/// Used to reconstruct the systemd-stub initrd for UKI PCR 9 prediction, where
+/// several sections (`.osrel`, `.ucode`, `.initrd`, `.pcrsig`, `.pcrpkey`,
+/// `.profile`) are optional. Returns exactly the section's virtual-size bytes
+/// (see [`extract_cmdline`] for the truncation behavior of `object`).
+pub fn get_optional_section(pe_data: &[u8], name: &str) -> Result<Option<Vec<u8>>> {
+    let pe = PeFile::<pe::ImageNtHeaders64>::parse(pe_data)
+        .ok()
+        .whatever_context("failed to parse PE32+ file")?;
+
+    for section in pe.sections() {
+        if section.name() == Ok(name) {
+            let data = section
+                .data()
+                .ok()
+                .whatever_context("failed to read section data")?;
+            return Ok(Some(data.to_vec()));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Get raw data from a named PE section.
 fn get_section_data<'a>(pe_data: &'a [u8], name: &str) -> Result<&'a [u8]> {
     let pe = PeFile::<pe::ImageNtHeaders64>::parse(pe_data)
@@ -208,6 +245,56 @@ pub(crate) mod tests {
         pe
     }
 
+    /// Build a minimal UKI PE with a single `.cmdline` section holding `cmdline`.
+    ///
+    /// `.cmdline` is exactly 8 bytes, so it fits directly in the section-name
+    /// field (no COFF string table needed). `VirtualSize` is set to the exact
+    /// command-line length while `SizeOfRawData` is padded to the file
+    /// alignment, mirroring a real `ukify`-produced UKI; `get_section_data`
+    /// therefore returns exactly `cmdline` (see `extract_cmdline`).
+    pub fn build_test_uki(cmdline: &[u8]) -> Vec<u8> {
+        assert!(cmdline.len() <= 0x200, "test cmdline must fit one raw block");
+        let mut pe = vec![0u8; 0x600];
+
+        // DOS header
+        pe[0..2].copy_from_slice(b"MZ");
+        pe[0x3c..0x40].copy_from_slice(&0x40u32.to_le_bytes()); // PE header offset
+
+        // PE signature + COFF header at 0x40
+        pe[0x40..0x44].copy_from_slice(b"PE\0\0");
+        pe[0x44..0x46].copy_from_slice(&0xaa64u16.to_le_bytes()); // Machine: ARM64
+        pe[0x46..0x48].copy_from_slice(&1u16.to_le_bytes()); // NumberOfSections
+        pe[0x4c..0x50].copy_from_slice(&0u32.to_le_bytes()); // PointerToSymbolTable
+        pe[0x50..0x54].copy_from_slice(&0u32.to_le_bytes()); // NumberOfSymbols
+        pe[0x54..0x56].copy_from_slice(&0xf0u16.to_le_bytes()); // SizeOfOptionalHeader
+        pe[0x56..0x58].copy_from_slice(&0x22u16.to_le_bytes()); // Characteristics
+
+        // Optional header (PE32+) at 0x58
+        pe[0x58..0x5a].copy_from_slice(&0x20bu16.to_le_bytes()); // Magic: PE32+
+        pe[0x5a] = 0x01; // MajorLinkerVersion
+        pe[0x78..0x7c].copy_from_slice(&0x1000u32.to_le_bytes()); // SectionAlignment
+        pe[0x7c..0x80].copy_from_slice(&0x200u32.to_le_bytes()); // FileAlignment
+        pe[0x80..0x84].copy_from_slice(&1u32.to_le_bytes()); // MajorOperatingSystemVersion
+        pe[0x88..0x8c].copy_from_slice(&1u32.to_le_bytes()); // MajorSubsystemVersion
+        pe[0x90..0x94].copy_from_slice(&0x3000u32.to_le_bytes()); // SizeOfImage
+        pe[0x94..0x98].copy_from_slice(&0x200u32.to_le_bytes()); // SizeOfHeaders
+        pe[0x9c..0x9e].copy_from_slice(&10u16.to_le_bytes()); // Subsystem: EFI Application
+        pe[0xc4..0xc8].copy_from_slice(&16u32.to_le_bytes()); // NumberOfRvaAndSizes
+
+        // Section header at 0x148: .cmdline (exactly 8 bytes -> fits inline)
+        pe[0x148..0x150].copy_from_slice(b".cmdline");
+        pe[0x150..0x154].copy_from_slice(&(cmdline.len() as u32).to_le_bytes()); // VirtualSize
+        pe[0x154..0x158].copy_from_slice(&0x1000u32.to_le_bytes()); // VirtualAddress
+        pe[0x158..0x15c].copy_from_slice(&0x200u32.to_le_bytes()); // SizeOfRawData
+        pe[0x15c..0x160].copy_from_slice(&0x200u32.to_le_bytes()); // PointerToRawData
+        pe[0x16c..0x170].copy_from_slice(&0x40000040u32.to_le_bytes()); // Characteristics
+
+        // .cmdline data at 0x200
+        pe[0x200..0x200 + cmdline.len()].copy_from_slice(cmdline);
+
+        pe
+    }
+
     #[test]
     fn test_authenticode_hash() {
         let pe = build_test_shim();
@@ -280,6 +367,23 @@ pub(crate) mod tests {
     fn test_section_not_found() {
         let shim = build_test_shim();
         let err = get_section_data(&shim, ".nonexistent").unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_extract_cmdline() {
+        let cmdline = b"BOOT_IMAGE=/vmlinuz root=/dev/dm-0 -- systemd.log_color=0";
+        let uki = build_test_uki(cmdline);
+        let extracted = extract_cmdline(&uki).unwrap();
+        // Exactly the embedded bytes (VirtualSize), no trailing NUL/padding.
+        assert_eq!(extracted, cmdline);
+    }
+
+    #[test]
+    fn test_extract_cmdline_missing_section() {
+        // A shim has no .cmdline section.
+        let shim = build_test_shim();
+        let err = extract_cmdline(&shim).unwrap_err();
         assert!(err.to_string().contains("not found"));
     }
 }

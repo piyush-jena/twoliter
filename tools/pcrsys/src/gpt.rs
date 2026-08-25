@@ -145,6 +145,15 @@ pub fn extract_primary_gpt<R: Read + Seek>(disk: &mut R) -> Result<Vec<u8>> {
 /// Bottlerocket boot partition type GUID.
 const BOTTLEROCKET_BOOT: [u8; 16] = uuid_to_guid(hex!("6b636168 7420 6568 2070 6c616e657421"));
 
+/// Linux Extended Boot Loader (XBOOTLDR) partition type GUID.
+///
+/// UKI images tag the boot partition (the FAT filesystem holding
+/// `/EFI/Linux/bottlerocket.efi`) with this type instead of the Bottlerocket
+/// boot type used by GRUB images. See `partyplanner`'s `set_partition_types`,
+/// which assigns `BOTTLEROCKET_XBOOTLDR_TYPECODE` to BOOT-{A,B} when
+/// `uki_image=yes`.
+const XBOOTLDR: [u8; 16] = uuid_to_guid(hex!("bc13c2ff 59e6 4262 a352 b275fd6f7172"));
+
 /// Bottlerocket private partition type GUID.
 const BOTTLEROCKET_PRIVATE: [u8; 16] = uuid_to_guid(hex!("440408bb eb0b 4328 a6e5 a29038fad706"));
 
@@ -181,8 +190,11 @@ pub fn find_partitions<R: Read + Seek>(disk: &mut R) -> Result<PartitionLayout> 
     };
 
     let efi_a = find_nth(&EFI_SYSTEM_PARTITION, 0).whatever_context("EFI-A partition not found")?;
-    let boot_a = find_nth(&BOTTLEROCKET_BOOT, 0).whatever_context("BOOT-A partition not found")?;
-    let boot_b = find_nth(&BOTTLEROCKET_BOOT, 1); // Optional for single-bank
+    // GRUB images tag BOOT-{A,B} with the Bottlerocket boot type; UKI images use
+    // the XBOOTLDR type. Accept either so both boot chains are located.
+    let find_boot_nth = |n: usize| find_nth(&BOTTLEROCKET_BOOT, n).or_else(|| find_nth(&XBOOTLDR, n));
+    let boot_a = find_boot_nth(0).whatever_context("BOOT-A partition not found")?;
+    let boot_b = find_boot_nth(1); // Optional for single-bank
     let private =
         find_nth(&BOTTLEROCKET_PRIVATE, 0).whatever_context("PRIVATE partition not found")?;
 
@@ -560,5 +572,24 @@ mod tests {
         let mut cursor = Cursor::new(&disk[..]);
         let err = find_partitions(&mut cursor).unwrap_err();
         assert!(err.to_string().contains("GPT"));
+    }
+
+    #[test]
+    fn test_find_partitions_uki_xbootldr() {
+        // UKI images tag the boot partition with the XBOOTLDR type instead of
+        // the Bottlerocket boot type, and are single-bank (no BOOT-B). Retag
+        // BOOT-A as XBOOTLDR and clear the BOOT-B slot to model this.
+        let mut disk = mock_disk_with_partitions();
+        disk[1024 + 128..1024 + 128 + 16].copy_from_slice(&XBOOTLDR); // BOOT-A -> XBOOTLDR
+        disk[1024 + 256..1024 + 256 + 16].copy_from_slice(&[0u8; 16]); // drop BOOT-B
+        recalc_disk_crcs(&mut disk);
+
+        let mut cursor = Cursor::new(&disk[..]);
+        let layout = find_partitions(&mut cursor).unwrap();
+
+        assert_eq!(layout.efi_a.number, 1);
+        assert_eq!(layout.boot_a.number, 2); // located via XBOOTLDR type
+        assert!(layout.boot_b.is_none()); // single-bank UKI
+        assert_eq!(layout.private.number, 4);
     }
 }

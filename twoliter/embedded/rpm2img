@@ -664,17 +664,37 @@ if [[ "${UKI_IMAGE}" == "yes" ]]; then
     exit 1
   fi
 
-  # Build cmdline EXACTLY mirroring grub.cfg
-  # bootconfig is not yet supported for UKI images: see uki_bootconfig_cmdline
-  # in imghelper for details on the hard-coded FIPS/systemd cmdline tokens
-  # used in place of it.
-  uki_bootconfig="$(uki_bootconfig_cmdline "${VARIANT}")"
+  # Reconstruct the kernel command line so that the runtime /proc/cmdline is
+  # byte-identical to what pcrsys predicts for this UKI (see the PCR9 command-
+  # line fidelity spec). systemd-stub measures the embedded .cmdline PE section
+  # verbatim, so lay the tokens out exactly as the kernel would produce them for
+  # a GRUB + bootconfig boot:
+  #   * bootconfig `kernel.*` snippet tokens are PREPENDED to the front (as the
+  #     kernel does when merging bootconfig.data),
+  #   * bootconfig `init.*` snippet tokens are inserted just after the `--`
+  #     separator (with the `init.` prefix stripped),
+  #   * loader-introduced tokens are intentionally ABSENT because systemd-stub
+  #     adds neither: GRUB's `BOOT_IMAGE=/vmlinuz` and the `bootconfig` word
+  #     that tells the kernel to load bootconfig.data from the initrd.
+  # bootconfig is not yet attachable to a UKI boot chain, so the snippet tokens
+  # are DERIVED FROM the same on-image /boot/boot-config.d/*.conf files that the
+  # GRUB build concatenates into bootconfig.data (single source of truth -- see
+  # uki_bootconfig_{kernel,init}_cmdline in imghelper). This directory still
+  # exists here; it is consumed into bootconfig.data further below.
+  uki_kernel_bootconfig="$(uki_bootconfig_kernel_cmdline "${BOOT_MOUNT}/boot-config.d")"
+  uki_init_bootconfig="$(uki_bootconfig_init_cmdline "${BOOT_MOUNT}/boot-config.d")"
 
-  # The escaped quotes around the verity table are intentional: the kernel's
-  # dm-mod.create= value contains spaces, so the literal quote characters must
-  # be part of the command line itself (this mirrors grub.cfg).
+  # The verity table value contains spaces, so the whole `dm-mod.create=...`
+  # token is wrapped in double quotes. This matches the whole-token form the
+  # kernel writes to /proc/cmdline for GRUB (grub.cfg's `dm-mod.create="..."` is
+  # normalised to `"dm-mod.create=..."`, which pcrsys reproduces via
+  # repair_quotes), so a single prediction model holds for both boot paths.
   # shellcheck disable=SC2016
-  uki_cmdline="${KERNEL_PARAMETERS} ${uki_bootconfig} root=/dev/dm-0 rootwait ro raid=noautodetect random.trust_cpu=on selinux=1 enforcing=1 dm-mod.create=\"${DM_VERITY_ROOT[*]}\" -- systemd.log_target=journal-or-kmsg systemd.log_color=0 systemd.show_status=true"
+  uki_cmdline="${uki_kernel_bootconfig} ${KERNEL_PARAMETERS} root=/dev/dm-0 rootwait ro raid=noautodetect random.trust_cpu=on selinux=1 enforcing=1 \"dm-mod.create=${DM_VERITY_ROOT[*]}\" --"
+  if [[ -n "${uki_init_bootconfig}" ]]; then
+    uki_cmdline="${uki_cmdline} ${uki_init_bootconfig}"
+  fi
+  uki_cmdline="${uki_cmdline} systemd.log_target=journal-or-kmsg systemd.log_color=0 systemd.show_status=true"
 
   # Create EFI/Linux directory for UKI
   mkdir -p "${BOOT_MOUNT}/EFI/Linux"
@@ -851,10 +871,12 @@ if [[ "${STANDALONE_IMAGE}" == "no" ]]; then
 fi
 
 # Predict PCR values after all partitions are written.
-# Skipped for UKI images: pcrsys currently assumes an ext4 BOOT-A partition
-# (for reading grub.cfg/vmlinuz), but UKI images use a FAT BOOT-A partition,
-# so PCR prediction would fail here.
-if [[ "${UEFI_SECURE_BOOT}" == "yes" && "${UKI_IMAGE}" == "no" ]]; then
+# pcrsys handles both boot chains: for GRUB images it reconstructs the kernel
+# command line from grub.cfg + bootconfig.data on an ext4 BOOT-A; for UKI images
+# it detects the FAT BOOT-A holding /EFI/Linux/bottlerocket.efi and predicts PCR9
+# from the command line embedded in that signed PE's .cmdline section (the same
+# value systemd-stub measures).
+if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
   "${0%/*}/pcrsys" disk \
     --image "${OS_IMAGE}" \
     --efi-vars "${SBKEYS}/efi-vars.json" \
