@@ -113,8 +113,13 @@ fn predict_cmdline(
 ///
 /// PCR 9 = extend(init, SHA256(cmdline + newline))
 /// The trailing newline matches /proc/cmdline format.
+///
+/// Returns `None` for A/B images and for direct-UKI images. In the uki-image
+/// layout the kernel command line is embedded in the UKI's `.cmdline` section
+/// (there is no grub.cfg to parse); predicting it from the UKI is not yet
+/// implemented here.
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
-    if ctx.partitions.boot_b.is_some() {
+    if ctx.partitions.boot_b.is_some() || !ctx.uki.is_empty() {
         return Ok(None);
     }
 
@@ -272,6 +277,20 @@ mod tests {
         use crate::predict::test_support::MockCtx;
         let m = MockCtx::dual_bank();
         let ctx = m.build(crate::platform::Platform::Aws);
+        assert!(predict(&ctx).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_predict_skipped_for_uki() {
+        use crate::predict::test_support::{build_test_uki, MockCtx};
+        let uki = build_test_uki();
+        let m = MockCtx::new();
+        let ctx = PcrContext::builder()
+            .platform(crate::platform::Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .uki(&uki)
+            .build();
         assert!(predict(&ctx).unwrap().is_none());
     }
 }

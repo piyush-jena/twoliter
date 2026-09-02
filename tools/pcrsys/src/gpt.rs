@@ -145,18 +145,30 @@ pub fn extract_primary_gpt<R: Read + Seek>(disk: &mut R) -> Result<Vec<u8>> {
 /// Bottlerocket boot partition type GUID.
 const BOTTLEROCKET_BOOT: [u8; 16] = uuid_to_guid(hex!("6b636168 7420 6568 2070 6c616e657421"));
 
+/// XBOOTLDR partition type GUID, used for BOOT-A/BOOT-B in the UKI (uki-image)
+/// layout so firmware/systemd can discover it (Type 2 boot entries).
+const BOTTLEROCKET_XBOOTLDR: [u8; 16] = uuid_to_guid(hex!("bc13c2ff 59e6 4262 a352 b275fd6f7172"));
+
 /// Bottlerocket private partition type GUID.
 const BOTTLEROCKET_PRIVATE: [u8; 16] = uuid_to_guid(hex!("440408bb eb0b 4328 a6e5 a29038fad706"));
 
 /// EFI System Partition type GUID.
 const EFI_SYSTEM_PARTITION: [u8; 16] = uuid_to_guid(hex!("c12a7328 f81f 11d2 ba4b 00a0c93ec93b"));
 
+/// Whether a partition type GUID denotes a Bottlerocket boot partition.
+///
+/// The grub layout uses the Bottlerocket boot type; the UKI layout uses the
+/// XBOOTLDR type for the same logical BOOT-A/BOOT-B partitions.
+fn is_boot_type(guid: &[u8; 16]) -> bool {
+    guid == &BOTTLEROCKET_BOOT || guid == &BOTTLEROCKET_XBOOTLDR
+}
+
 /// Get the unique GUID of the first boot partition (BOOT-A).
 pub fn get_boot_partuuid<R: Read + Seek>(disk: &mut R) -> Result<String> {
     let gpt = GPT::find_from(disk).whatever_context("failed to parse GPT")?;
     let (_, part) = gpt
         .iter()
-        .find(|(_, p)| p.partition_type_guid == BOTTLEROCKET_BOOT)
+        .find(|(_, p)| is_boot_type(&p.partition_type_guid))
         .whatever_context("BOOT-A partition not found")?;
     Ok(Uuid::from_bytes_le(part.unique_partition_guid).to_string())
 }
@@ -164,7 +176,8 @@ pub fn get_boot_partuuid<R: Read + Seek>(disk: &mut R) -> Result<String> {
 /// Find partitions by type GUID and return their layout.
 ///
 /// Parses GPT to find EFI-A, BOOT-A, BOOT-B (optional), and PRIVATE partitions.
-/// Single-bank images will not have BOOT-B.
+/// BOOT partitions match either the Bottlerocket boot type (grub layout) or the
+/// XBOOTLDR type (UKI layout). Single-bank images will not have BOOT-B.
 pub fn find_partitions<R: Read + Seek>(disk: &mut R) -> Result<PartitionLayout> {
     let gpt = GPT::find_from(disk).whatever_context("failed to parse GPT")?;
 
@@ -180,9 +193,21 @@ pub fn find_partitions<R: Read + Seek>(disk: &mut R) -> Result<PartitionLayout> 
             })
     };
 
+    // Find nth partition matching the boot-partition predicate (grub or UKI type).
+    let find_nth_boot = |n: usize| -> Option<PartitionInfo> {
+        gpt.iter()
+            .filter(|(_, p)| is_boot_type(&p.partition_type_guid))
+            .nth(n)
+            .map(|(num, p)| PartitionInfo {
+                number: num,
+                start_lba: p.starting_lba,
+                end_lba: p.ending_lba,
+            })
+    };
+
     let efi_a = find_nth(&EFI_SYSTEM_PARTITION, 0).whatever_context("EFI-A partition not found")?;
-    let boot_a = find_nth(&BOTTLEROCKET_BOOT, 0).whatever_context("BOOT-A partition not found")?;
-    let boot_b = find_nth(&BOTTLEROCKET_BOOT, 1); // Optional for single-bank
+    let boot_a = find_nth_boot(0).whatever_context("BOOT-A partition not found")?;
+    let boot_b = find_nth_boot(1); // Optional for single-bank
     let private =
         find_nth(&BOTTLEROCKET_PRIVATE, 0).whatever_context("PRIVATE partition not found")?;
 
@@ -560,5 +585,38 @@ mod tests {
         let mut cursor = Cursor::new(&disk[..]);
         let err = find_partitions(&mut cursor).unwrap_err();
         assert!(err.to_string().contains("GPT"));
+    }
+
+    #[test]
+    fn test_is_boot_type() {
+        assert!(is_boot_type(&BOTTLEROCKET_BOOT));
+        assert!(is_boot_type(&BOTTLEROCKET_XBOOTLDR));
+        assert!(!is_boot_type(&EFI_SYSTEM_PARTITION));
+        assert!(!is_boot_type(&BOTTLEROCKET_PRIVATE));
+    }
+
+    #[test]
+    fn test_find_partitions_uki_xbootldr() {
+        // UKI layout: BOOT-A uses the XBOOTLDR type GUID instead of the
+        // Bottlerocket boot type. find_partitions must still locate it.
+        let mut disk = mock_disk_with_partitions();
+        let entries = 1024;
+        let p2 = entries + 128; // BOOT-A
+        disk[p2..p2 + 16].copy_from_slice(&BOTTLEROCKET_XBOOTLDR);
+        // Drop BOOT-B (single-bank UKI) so only one boot partition remains.
+        let p3 = entries + 256;
+        disk[p3..p3 + 16].copy_from_slice(&[0u8; 16]);
+        recalc_disk_crcs(&mut disk);
+
+        let mut cursor = Cursor::new(&disk[..]);
+        let layout = find_partitions(&mut cursor).unwrap();
+        assert_eq!(layout.boot_a.number, 2);
+        assert!(layout.boot_b.is_none());
+        assert_eq!(layout.private.number, 4);
+
+        let mut cursor = Cursor::new(&disk[..]);
+        // get_boot_partuuid must also resolve the XBOOTLDR boot partition.
+        let uuid = get_boot_partuuid(&mut cursor).unwrap();
+        assert_eq!(uuid, Uuid::from_bytes_le([0x22; 16]).to_string());
     }
 }

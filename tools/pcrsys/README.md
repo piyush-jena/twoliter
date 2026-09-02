@@ -58,6 +58,11 @@ JSON output with predicted PCR values, keyed by PCR index:
 
 PCRs 4 and 9 are skipped for images with A/B boot partitions since the active kernel and root hash can change.
 
+For direct-UKI (uki-image) disks, pcrsys detects the systemd-stub UKI at the ESP removable-media fallback path (`EFI/BOOT/BOOT{X64,AA64}.EFI`) and adjusts:
+- PCR 4 measures the single UKI application (no shim/grub/vmlinuz chain).
+- PCR 7 stops after the db authority (no shim SbatLevel/MokListRT).
+- PCR 9 and PCR 14 are skipped (no grub.cfg, no shim-provided MOK).
+
 ## Supported Platforms
 
 - **aws**: AWS Nitro (EC2 instances)
@@ -85,6 +90,12 @@ JSON file containing Secure Boot variables:
 
 ### Disk image
 
-GPT-partitioned disk image containing:
+GPT-partitioned disk image containing either:
+
+Shim→grub layout (grub variants):
 - EFI System Partition (FAT) with `/EFI/BOOT/boot{aa64,x64}.efi` (shim) and `grub{aa64,x64}.efi`
 - Boot partition (ext4) with `/vmlinuz`, `/grub.cfg`, and `/bootconfig.data`
+
+Direct-UKI layout (uki-image variants):
+- EFI System Partition (FAT) with the signed UKI at `/EFI/BOOT/BOOT{AA64,X64}.EFI` (systemd-stub PE with a `.linux` section)
+- XBOOTLDR boot partition (FAT) holding the UKI

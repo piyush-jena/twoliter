@@ -57,6 +57,10 @@ pub struct PcrContext<'a> {
     pub gpt_bin: &'a [u8],
     #[builder(default)]
     pub shim: &'a [u8],
+    /// Signed UKI (systemd-stub) from the ESP fallback path, for direct-boot
+    /// (uki-image) variants. Empty for the shim->grub->vmlinuz layout.
+    #[builder(default)]
+    pub uki: &'a [u8],
     #[builder(default)]
     pub grub: &'a [u8],
     #[builder(default)]
@@ -203,7 +207,7 @@ pub mod test_support {
         }
     }
 
-    pub use crate::pe::tests::build_test_shim;
+    pub use crate::pe::tests::{build_test_shim, build_test_uki};
 
     /// Test context that owns EfiVars and PartitionLayout for convenient test setup.
     pub struct MockCtx {

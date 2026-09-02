@@ -69,6 +69,20 @@ OVERHEAD_MIB="$((GPT_MIB * 2 + BIOS_MIB))"
 # EFI partition size by taking space from the "reserved" area below.
 EFI_MIB="5" # one per bank
 
+# UKI variants (`image-format = "uki"`) load a single signed Unified Kernel
+# Image directly from the EFI system partition's removable-media fallback path
+# (`EFI/BOOT/BOOT{X64,AA64}.EFI`), with no intermediate loader. That UKI is
+# ~14 MiB and does not fit in the default 10 MiB ESP (EFI_MIB * 2 for the
+# single-bank layout UKI uses), so the UKI layout grows the ESP to this many
+# MiB -- enough for the UKI plus the Secure Boot certificate copies, with
+# headroom for kernel growth. The extra space (relative to the default ESP) is
+# reclaimed from the RESERVED partition in `set_partition_sizes`, so the overall
+# image size is unchanged. Only the UKI path uses this; non-UKI layouts keep the
+# EFI_MIB-based sizing so their on-disk layout (and update compatibility) is
+# untouched. UKI is incompatible with in-place-updates, so there is only ever a
+# single EFI system partition to size.
+EFI_UKI_MIB="40" # total, single-bank UKI layout only
+
 # Allocate 1 MiB for the initial data partition A.
 DATA_A_MIB="1" # one per disk
 
@@ -231,8 +245,15 @@ get_partition_sizes() {
 #                          "yes", a single-bank stripped-down layout is
 #                          produced with no RESERVED, PRIVATE, or DATA
 #                          partitions.
+#   $8  uki_image         (optional, default "no") "yes" or "no". When
+#                          "yes", the single-bank layout grows the EFI system
+#                          partition to `EFI_UKI_MIB` so it can hold the signed
+#                          UKI at the removable-media fallback path, reclaiming
+#                          the extra space from RESERVED-A so the overall image
+#                          size is unchanged. UKI is incompatible with
+#                          in-place-updates (single bank only).
 set_partition_sizes() {
-  local os_image_gib data_image_gib partition_plan in_place_updates standalone_image
+  local os_image_gib data_image_gib partition_plan in_place_updates standalone_image uki_image
   local -n pp_size pp_offset
   os_image_gib="${1:?}"
   data_image_gib="${2:?}"
@@ -257,6 +278,11 @@ set_partition_sizes() {
   # Bottlerocket image. Defaults to "no" if not provided so existing direct
   # callers continue to get the standard layout unchanged.
   standalone_image="${7:-no}"
+
+  # Whether we're building a UKI image (`image-format = "uki"`), which places
+  # the signed UKI directly on a grown EFI system partition. Defaults to "no"
+  # so existing direct callers get the unchanged EFI_MIB-based sizing.
+  uki_image="${8:-no}"
 
   # Most of the partitions on the main image scale with the overall size.
   local boot_mib root_mib hash_mib reserved_mib private_mib
@@ -364,9 +390,32 @@ set_partition_sizes() {
     done
   else
     # Allocate a single partition bank, where each partition is twice as large.
+    #
+    # For UKI images the signed Unified Kernel Image is written directly to the
+    # EFI system partition at the removable-media fallback path
+    # (`EFI/BOOT/BOOT{X64,AA64}.EFI`) so firmware loads it with no intermediate
+    # loader. The default 10 MiB ESP (`EFI_MIB * 2`) cannot hold the ~14 MiB
+    # UKI, so grow EFI-A to `EFI_UKI_MIB` and reclaim the extra space from
+    # RESERVED-A below, keeping the overall image size unchanged. Non-UKI
+    # single-bank images keep the original `EFI_MIB * 2` / `reserved_mib * 2`
+    # sizing, so their on-disk layout is untouched.
+    local efi_a_mib reserved_a_mib efi_extra_mib
+    if [[ "${uki_image}" == "yes" ]]; then
+      efi_a_mib="${EFI_UKI_MIB}"
+    else
+      efi_a_mib="$(( EFI_MIB * 2 ))"
+    fi
+    efi_extra_mib="$(( efi_a_mib - EFI_MIB * 2 ))"
+    reserved_a_mib="$(( reserved_mib * 2 - efi_extra_mib ))"
+    if (( reserved_a_mib < 0 )); then
+      echo "set_partition_sizes: EFI-A of ${efi_a_mib} MiB leaves no room in \
+RESERVED-A (would be ${reserved_a_mib} MiB) for a ${os_image_gib} GiB image" >&2
+      exit 1
+    fi
+
     pp_offset["EFI-A"]="${offset}"
-    pp_size["EFI-A"]="$(( EFI_MIB * 2 ))"
-    ((offset += EFI_MIB * 2))
+    pp_size["EFI-A"]="${efi_a_mib}"
+    ((offset += efi_a_mib))
 
     pp_offset["BOOT-A"]="${offset}"
     pp_size["BOOT-A"]="$(( boot_mib * 2 ))"
@@ -381,8 +430,8 @@ set_partition_sizes() {
     ((offset += hash_mib * 2))
 
     pp_offset["RESERVED-A"]="${offset}"
-    pp_size["RESERVED-A"]="$(( reserved_mib * 2 ))"
-    ((offset += reserved_mib * 2))
+    pp_size["RESERVED-A"]="${reserved_a_mib}"
+    ((offset += reserved_a_mib))
   fi
 
   pp_offset["PRIVATE"]="${offset}"

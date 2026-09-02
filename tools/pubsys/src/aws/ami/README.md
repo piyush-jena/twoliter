@@ -38,6 +38,11 @@ virtualization-type = "hvm"
 ena-support = true
 
 # These attributes are provided if the Bottlerocket variant has *uefi-secure-boot* enabled
+# The `uefi-data` blob (the `efi-vars.aws` UEFI variable store from the sbkeys
+# profile) enrolls PK/KEK/db and, since the UKI-direct-boot change, a non-empty
+# `dbx` entry revoking the prior (mixed-history) UKI signing certificate. pubsys
+# passes this blob through to RegisterImage as the AMI's UEFI variable data, so
+# the registered AMI carries the Secure Boot revocation.
 uefi-data = "UEFI DATA GENERATED DURING BUILD PROCESS"
 boot-mode = "uefi-preferred"
 
