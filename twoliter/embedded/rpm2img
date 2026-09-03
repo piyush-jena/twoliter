@@ -161,7 +161,7 @@ declare -A partlabel parttype partguid partsize partoff
 set_partition_sizes \
   "${OS_IMAGE_SIZE_GIB}" "${DATA_IMAGE_SIZE_GIB}" \
   "${PARTITION_PLAN}" "${IN_PLACE_UPDATES}" \
-  partsize partoff "${STANDALONE_IMAGE}"
+  partsize partoff "${STANDALONE_IMAGE}" "${UKI_IMAGE}"
 set_partition_labels partlabel
 set_partition_types parttype "${UKI_IMAGE}"
 set_partition_uuids partguid "${PARTITION_PLAN}"
@@ -432,20 +432,8 @@ if [[ "${ARCH}" == "x86_64" && "${UKI_IMAGE}" == "no" ]]; then
   rm -vf "${ROOT_MOUNT}"/boot/grub/*
 fi
 
-# We also need an EFI partition, formatted FAT32 with the
-# EFI binary at the correct path, e.g. /efi/boot. The bootloader
-# packages (shim, and grub or systemd-boot depending on the image
-# format) have placed their binaries in /boot/efi/EFI/BOOT.
-mv "${ROOT_MOUNT}/boot/efi"/* "${EFI_MOUNT}"
-
-pushd "${EFI_MOUNT}/EFI/BOOT" >/dev/null
-
-# The shim package builds one shim per bootloader it can chain-load, and the
-# `uki-image` / `no-uki-image` capabilities ensure that exactly one flavor is
-# installed. The grub-chaining shim is installed at the platform-defined
-# default boot path, where older image builds expect to find it, while other
-# flavors are installed under a bootloader-specific name and have to be moved
-# into place.
+# We also need an EFI partition, formatted FAT32 with the EFI binaries at the
+# correct path, e.g. /efi/boot.
 case "${ARCH}" in
 x86_64) efi_arch="x64" ;;
 aarch64) efi_arch="aa64" ;;
@@ -454,50 +442,47 @@ aarch64) efi_arch="aa64" ;;
   exit 1
   ;;
 esac
-shim="boot${efi_arch}.efi"
 
-if [[ "${UKI_IMAGE}" == "yes" ]]; then
-  shim_flavor="shim-systemd-boot${efi_arch}.efi"
-  if [[ ! -e "${shim_flavor}" ]]; then
-    echo "no systemd-boot shim '${shim_flavor}' on the EFI system partition" >&2
-    exit 1
-  fi
-  mv "${shim_flavor}" "${shim}"
-elif [[ ! -e "${shim}" ]]; then
-  echo "no shim '${shim}' on the EFI system partition" >&2
-  exit 1
+# Set up `pesign`/`gpg` signing once, up front, if Secure Boot is enabled. Both
+# the GRUB-mode loaders on the ESP and the UKI (signed later) depend on this,
+# and `provide_certs` needs the DER-format certificates that it produces. In
+# UKI mode there are no loaders to sign on the ESP, but the profile is still
+# required for signing the UKI and for the certificate copies below.
+if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
+  # Do the setup required for `pesign` and `gpg` signing and verification to
+  # "just work", regardless of which type of signing profile we have.
+  sbsetup_signing_profile
 fi
 
-mokms=(mm*.efi)
-mokm="${mokms[0]}"
-
 if [[ "${UKI_IMAGE}" == "yes" ]]; then
-  # UKI mode: shim chain-loads systemd-boot, which is installed next to it
-  # and discovers UKIs on the XBOOTLDR partition.
-  systemd_boots=(systemd-boot*.efi)
-  systemd_boot="${systemd_boots[0]}"
-  if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
-    # Do the setup required for `pesign` and `gpg` signing and
-    # verification to "just work", regardless of which type of
-    # signing profile we have.
-    sbsetup_signing_profile
-
-    sign_shim "${shim}"
-    sign_mokm "${mokm}"
-    sign_systemd_boot "${systemd_boot}"
-  else
-    zero_shim "${shim}"
-  fi
+  # UKI mode: firmware loads the signed UKI directly, so no intermediate
+  # loaders (shim, systemd-boot, MokManager) are installed by the packages or
+  # copied onto the EFI system partition. Nothing lands in /boot/efi, and the
+  # UKI itself is assembled and placed later. The ESP created below therefore
+  # carries only the Secure Boot certificate (when enabled).
+  :
 else
+  # GRUB mode: the bootloader packages (shim + grub) have placed their binaries
+  # in /boot/efi/EFI/BOOT. The grub-chaining shim is installed at the
+  # platform-defined default boot path, where older image builds expect to
+  # find it.
+  mv "${ROOT_MOUNT}/boot/efi"/* "${EFI_MOUNT}"
+
+  pushd "${EFI_MOUNT}/EFI/BOOT" >/dev/null
+
+  shim="boot${efi_arch}.efi"
+  if [[ ! -e "${shim}" ]]; then
+    echo "no shim '${shim}' on the EFI system partition" >&2
+    exit 1
+  fi
+
+  mokms=(mm*.efi)
+  mokm="${mokms[0]}"
+
   # GRUB mode: shim chain-loads grub.
   grubs=(grub*.efi)
   grub="${grubs[0]}"
   if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
-    # Do the setup required for `pesign` and `gpg` signing and
-    # verification to "just work", regardless of which type of
-    # signing profile we have.
-    sbsetup_signing_profile
-
     sign_shim "${shim}"
     sign_mokm "${mokm}"
     sign_grub "${grub}"
@@ -505,23 +490,26 @@ else
     zero_shim "${shim}"
     unembed_grub "${grub}"
   fi
+  popd >/dev/null
 fi
-popd >/dev/null
 
 dd if=/dev/zero of="${EFI_IMAGE}" bs=1M count="${partsize["EFI-A"]}"
 mkfs.vfat -I -S 512 "${EFI_IMAGE}" $((partsize["EFI-A"] * 1024))
 mmd -i "${EFI_IMAGE}" ::/EFI
 mmd -i "${EFI_IMAGE}" ::/EFI/BOOT
-mcopy -i "${EFI_IMAGE}" "${EFI_MOUNT}/EFI/BOOT"/*.efi ::/EFI/BOOT
-if [[ "${UKI_IMAGE}" == "yes" ]]; then
-  # Only systemd-boot consumes `\loader\loader.conf`, and only from the volume
-  # it was loaded from, which is this EFI system partition.
-  provide_loader_config "${EFI_IMAGE}" "${EFI_MOUNT}"
+if [[ "${UKI_IMAGE}" != "yes" ]]; then
+  # Copy the GRUB-mode loaders (shim/grub/MokManager) onto the ESP. In UKI mode
+  # there are no loaders to copy; the UKI is placed directly later.
+  mcopy -i "${EFI_IMAGE}" "${EFI_MOUNT}/EFI/BOOT"/*.efi ::/EFI/BOOT
 fi
 if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
   # Make the signing certificate available on the EFI system partition so it
   # can be imported through the firmware setup UI on bare metal systems.
   provide_certs "${EFI_IMAGE}"
+  # Stage the dbx revocation material (the retired `uki-sign-old` certificate)
+  # so the prior mixed-history cert can likewise be imported into firmware dbx
+  # on bare-metal systems. This does not auto-enroll; it mirrors provide_certs.
+  provide_dbx "${EFI_IMAGE}"
 fi
 dd if="${EFI_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff["EFI-A"]}"
 
@@ -531,7 +519,10 @@ mkdir -p "${ROOT_MOUNT}/boot/grub"
 # Now that we're done messing with /, move /boot out of it
 mv "${ROOT_MOUNT}/boot"/* "${BOOT_MOUNT}"
 
-if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
+if [[ "${UEFI_SECURE_BOOT}" == "yes" && "${UKI_IMAGE}" != "yes" ]]; then
+  # In UKI mode the kernel is embedded in the UKI and signed as part of it, so
+  # the standalone vmlinuz is never signed on its own: it is only an ephemeral
+  # ukify input and is removed after the UKI is assembled (see below).
   sign_vmlinuz "${BOOT_MOUNT}/vmlinuz"
 fi
 
@@ -689,14 +680,36 @@ if [[ "${UKI_IMAGE}" == "yes" ]]; then
     --os-release "@${ROOT_MOUNT}/${SYS_ROOT}/usr/lib/os-release" \
     --output "${BOOT_MOUNT}/EFI/Linux/bottlerocket.efi"
 
-  # Sign UKI with do_sign if secure boot enabled
+  # Sign the UKI with the UKI-only signing identity (uki-sign). This is the
+  # sole signing invocation in the UKI path: firmware loads the UKI directly,
+  # so there is no shim/systemd-boot/MokManager/grub/vmlinuz to sign here. The
+  # uki-sign certificate is issued off the db CA, so sign_uki verifies that the
+  # signed UKI chains to db (see imghelper). Using a fresh, single-purpose
+  # identity is what lets us guarantee the signing cert signs *only* UKIs.
   if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
-    sign_systemd_boot "${BOOT_MOUNT}/EFI/Linux/bottlerocket.efi"
+    sign_uki "${BOOT_MOUNT}/EFI/Linux/bottlerocket.efi"
   fi
 
   # Generate an HMAC for the UKI after signing. The token is relative to
   # check-kernel-integrity.service's WorkingDirectory=/boot.
   generate_hmac "${BOOT_MOUNT}/EFI/Linux/bottlerocket.efi" "EFI/Linux/bottlerocket.efi"
+
+  # Place the signed UKI at the EFI system partition's removable-media fallback
+  # path (EFI/BOOT/BOOT{X64,AA64}.EFI) so UEFI firmware loads it directly, with
+  # no intermediate loader (shim/systemd-boot are gone). EC2 (and most) firmware
+  # boots this well-known path from the ESP when no explicit BootOrder entry
+  # matches, which is exactly the collapsed firmware -> UKI chain this feature
+  # targets. The ESP (EFI_IMAGE) was formatted and had its Secure Boot
+  # certificate copies staged earlier, but the UKI did not exist yet; the
+  # EFI_IMAGE temp file is still around, so copy the UKI in now and rewrite the
+  # EFI partition region of the OS image in place. The ESP was grown to
+  # EFI_UKI_MIB by partyplanner precisely so it can hold this ~14 MiB UKI. The
+  # UKI also remains on BOOT-A at EFI/Linux/bottlerocket.efi (written below),
+  # keeping that layout unchanged.
+  uki_fallback="BOOT${efi_arch^^}.EFI"
+  mcopy -i "${EFI_IMAGE}" "${BOOT_MOUNT}/EFI/Linux/bottlerocket.efi" \
+    "::/EFI/BOOT/${uki_fallback}"
+  dd if="${EFI_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff["EFI-A"]}"
 
   # The kernel is now embedded in the UKI's .linux PE section, so the
   # standalone kernel image is no longer needed and must not be shipped.
@@ -841,10 +854,10 @@ if [[ "${STANDALONE_IMAGE}" == "no" ]]; then
 fi
 
 # Predict PCR values after all partitions are written.
-# Skipped for UKI images: pcrsys currently assumes an ext4 BOOT-A partition
-# (for reading grub.cfg/vmlinuz), but UKI images use a FAT BOOT-A partition,
-# so PCR prediction would fail here.
-if [[ "${UEFI_SECURE_BOOT}" == "yes" && "${UKI_IMAGE}" == "no" ]]; then
+# pcrsys auto-detects the boot layout: the shim->grub->vmlinuz chain (ext4
+# BOOT-A) or the direct-UKI layout (signed UKI at the ESP fallback path,
+# XBOOTLDR BOOT-A) for which it predicts PCR4/PCR7 directly.
+if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
   "${0%/*}/pcrsys" disk \
     --image "${OS_IMAGE}" \
     --efi-vars "${SBKEYS}/efi-vars.json" \

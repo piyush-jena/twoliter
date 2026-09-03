@@ -201,6 +201,50 @@ else
 fi
 
 ###############################################################################
+# Test 6b: UKI layout (uki_image=yes) grows the ESP and reclaims the extra
+# space from RESERVED-A, leaving the overall image size unchanged.
+#
+# 2 GiB split image, single-bank (UKI is incompatible with in-place-updates):
+#   EFI-A      = EFI_UKI_MIB       = 40  (was 10 = EFI_MIB * 2)
+#   RESERVED-A = (2*15 - 5)*2 - 30 = 20  (was 50; reclaimed the extra 30 MiB)
+# Every other partition (and every offset from BOOT-A onward) must be
+# identical to the non-UKI single-bank 2 GiB split layout.
+###############################################################################
+echo "Test 6b: uki_image=yes grows ESP and reclaims from RESERVED-A"
+declare -A uki_size uki_off non_uki_size non_uki_off
+set_partition_sizes 2 1 split no uki_size uki_off no yes
+set_partition_sizes 2 1 split no non_uki_size non_uki_off no no
+
+assert_eq "${uki_size[EFI-A]}"      "40" "UKI EFI-A size == EFI_UKI_MIB"
+assert_eq "${non_uki_size[EFI-A]}"  "10" "non-UKI EFI-A size unchanged"
+assert_eq "${uki_size[RESERVED-A]}" "20" "UKI RESERVED-A reclaimed (50 - 30)"
+assert_eq "${non_uki_size[RESERVED-A]}" "50" "non-UKI RESERVED-A unchanged"
+
+# The ESP must be large enough to hold the ~14 MiB UKI with headroom.
+if (( uki_size[EFI-A] >= 14 )); then
+  pass "UKI EFI-A (${uki_size[EFI-A]} MiB) >= 14 MiB UKI"
+else
+  fail "UKI EFI-A (${uki_size[EFI-A]} MiB) too small for a ~14 MiB UKI"
+fi
+
+# Non-UKI layout must be byte-for-byte identical to before this change: EFI-A
+# offset matches, and every partition from BOOT-A onward keeps the same size
+# and offset between the UKI and non-UKI layouts (only EFI-A/RESERVED-A sizes
+# differ, and the offsets shift only within the ESP..RESERVED-A span).
+assert_eq "${uki_off[EFI-A]}"  "${non_uki_off[EFI-A]}"  "EFI-A offset unchanged"
+assert_eq "${uki_off[BOOT-A]}" "$((non_uki_off[BOOT-A] + 30))" "UKI BOOT-A shifted by grown ESP"
+assert_eq "${uki_size[BOOT-A]}" "${non_uki_size[BOOT-A]}" "BOOT-A size unchanged in UKI layout"
+assert_eq "${uki_size[ROOT-A]}" "${non_uki_size[ROOT-A]}" "ROOT-A size unchanged in UKI layout"
+assert_eq "${uki_size[HASH-A]}" "${non_uki_size[HASH-A]}" "HASH-A size unchanged in UKI layout"
+assert_eq "${uki_size[PRIVATE]}" "${non_uki_size[PRIVATE]}" "PRIVATE size unchanged in UKI layout"
+
+# Crucially, the total consumed space (and therefore the image size) must be
+# identical between the two layouts: growing the ESP must not enlarge the image.
+uki_total=$((uki_off[DATA-A] + uki_size[DATA-A]))
+non_uki_total=$((non_uki_off[DATA-A] + non_uki_size[DATA-A]))
+assert_eq "${uki_total}" "${non_uki_total}" "UKI layout total == non-UKI total (image size unchanged)"
+
+###############################################################################
 # Test 7: `set_eif_partition_sizes` tight-fit layout.
 #
 # With rootfs_mib=100 and verity_mib=8:

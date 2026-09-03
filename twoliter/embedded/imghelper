@@ -56,7 +56,7 @@ VERITY_HASH_BLOCK_SIZE=4096
 SBKEYS="${HOME}/sbkeys"
 
 # Pre-emptively declare global arrays to be populated later.
-declare -a SHIM_SIGN_KEY CODE_SIGN_KEY
+declare -a SHIM_SIGN_KEY CODE_SIGN_KEY UKI_SIGN_KEY
 
 sanity_checks() {
   local output_fmt partition_plan ovf_template uefi_secure_boot sbom_package_dir
@@ -111,6 +111,11 @@ sanity_checks() {
     if [ "${uefi_secure_boot}" == "yes" ]; then
       if ! grep -Fq '{{DB_CERT_DER_HEX}}' "${ovf_template}"; then
         echo "Missing CA certificate field in OVF template, which is required for Secure Boot support." >&2
+        exit 1
+      fi
+
+      if ! grep -Fq '{{DBX_CERT_DER_HEX}}' "${ovf_template}"; then
+        echo "Missing dbx revocation field in OVF template, which is required for Secure Boot support." >&2
         exit 1
       fi
     fi
@@ -579,7 +584,10 @@ sbsetup_wrapup() {
   # Convert certificates from PEM format (ASCII) to DER (binary). This could be
   # done when the certificates are created, but the resulting binary files are
   # not as nice to store in source control.
-  for cert in PK KEK db vendor; do
+  #
+  # `uki-sign-old` is the retired, revoked UKI signing certificate; its DER form
+  # is consumed by `provide_dbx` (bare-metal ESP) and `generate_ova` (OVF dbx).
+  for cert in PK KEK db vendor uki-sign-old; do
     openssl x509 \
       -inform PEM -in "${SBKEYS}/${cert}.crt" \
       -outform DER -out "${SBKEYS}/${cert}.cer"
@@ -615,6 +623,7 @@ sbsetup_aws_profile() {
   export AWS_KMS_PKCS11_DEBUG=1
   SHIM_SIGN_KEY+=(-c shim-sign-key -t shim-sign-key)
   CODE_SIGN_KEY+=(-c code-sign-key -t code-sign-key)
+  UKI_SIGN_KEY+=(-c uki-sign-key -t uki-sign-key)
 
   local sb_key_source="aws"
   sbsetup_wrapup "${sb_key_source}"
@@ -641,6 +650,16 @@ sbsetup_local_profile() {
     -certfile "${SBKEYS}/vendor.crt" \
     -out "${SBKEYS}/code-sign.p12"
 
+  # The UKI-only signing identity. Its cert is issued off the db CA, so the p12
+  # bundles db.crt as the chain, mirroring shim-sign.
+  openssl pkcs12 \
+    -export \
+    -passout pass: \
+    -inkey "${SBKEYS}/uki-sign.key" \
+    -in "${SBKEYS}/uki-sign.crt" \
+    -certfile "${SBKEYS}/db.crt" \
+    -out "${SBKEYS}/uki-sign.p12"
+
   # Import certificates and private key archive.
   local pedb="/etc/pki/pesign"
 
@@ -652,9 +671,13 @@ sbsetup_local_profile() {
   certutil -d "${pedb}" -A -n code-sign-key -i "${SBKEYS}/code-sign.crt" -t ",,P"
   pk12util -d "${pedb}" -i "${SBKEYS}/code-sign.p12" -W ""
 
+  certutil -d "${pedb}" -A -n uki-sign-key -i "${SBKEYS}/uki-sign.crt" -t ",,P"
+  pk12util -d "${pedb}" -i "${SBKEYS}/uki-sign.p12" -W ""
+
   certutil -d "${pedb}" -L
   SHIM_SIGN_KEY+=(-c shim-sign-key)
   CODE_SIGN_KEY+=(-c code-sign-key)
+  UKI_SIGN_KEY+=(-c uki-sign-key)
 
   local sb_key_source="local"
   sbsetup_wrapup "${sb_key_source}"
@@ -756,6 +779,26 @@ provide_certs() {
   mcopy -i "${efi_image}" -ov "${SBKEYS}"/db.{crt,cer} ::/EFI/BOOT
 }
 
+# Stage the Secure Boot revocation (dbx) material onto the EFI system partition.
+#
+# `uki-sign-old` is the prior (mixed-history) UKI signing certificate that is
+# being revoked. Its certificate is copied onto the ESP (as `dbx.crt`/`dbx.cer`)
+# so that on bare-metal systems it can be imported into the firmware `dbx`
+# through the firmware setup UI, mirroring how `provide_certs` stages the `db`
+# certificate for import. On AWS and VMware the same revocation is provisioned
+# through the AMI UEFI variable store (`efi-vars.aws`, via `--add-dbx-cert`) and
+# the OVF `dbxDefault` field (via `generate_ova`) respectively.
+#
+# Revoking this dedicated retired identity can never reject a legitimately
+# signed shim/grub/MokManager/vmlinuz (non-UKI variants) or the current
+# `uki-sign` UKI, because none of those are signed by `uki-sign-old`.
+provide_dbx() {
+  local efi_image
+  efi_image="${1:?}"
+  mcopy -i "${efi_image}" -ov "${SBKEYS}"/uki-sign-old.crt ::/EFI/BOOT/dbx.crt
+  mcopy -i "${efi_image}" -ov "${SBKEYS}"/uki-sign-old.cer ::/EFI/BOOT/dbx.cer
+}
+
 # Copy the systemd-boot configuration onto the EFI system partition.
 #
 # systemd-boot reads exactly one configuration file, `/loader/loader.conf`, and
@@ -815,6 +858,21 @@ sign_systemd_boot() {
   do_sign "${loader}" "${SBKEYS}/vendor.cer" CODE_SIGN_KEY
 }
 
+# Sign a Unified Kernel Image with the UKI-only signing identity.
+#
+# The UKI is signed with the fresh `uki-sign` key and verified against
+# `db.cer`: the uki-sign certificate is issued off the db CA, so the signed
+# UKI chains to `db` and is authorized by firmware under Secure Boot. This is
+# the ONLY signing call that uses UKI_SIGN_KEY; that identity never signs
+# shim/systemd-boot/MokManager/grub/vmlinuz.
+sign_uki() {
+  local uki
+  uki="${1:?}"
+
+  undo_sign "${uki}"
+  do_sign "${uki}" "${SBKEYS}/db.cer" UKI_SIGN_KEY
+}
+
 generate_hmac() {
   local target token
   target="${1:?}"
@@ -868,16 +926,20 @@ generate_ova() {
   # The manifest templates for Secure Boot expect the cert data for
   # PK, KEK, db, and dbx.
   if [[ "${uefi_secure_boot}" == "yes" ]]; then
-    local data_disk_bytes kek_cert_der_hex db_cert_der_hex dbx_empty_hash_hex
+    local data_disk_bytes kek_cert_der_hex db_cert_der_hex dbx_cert_der_hex
     pk_cert_der_hex="$(hexdump -ve '1/1 "%02x"' "${SBKEYS}/PK.cer")"
     kek_cert_der_hex="$(hexdump -ve '1/1 "%02x"' "${SBKEYS}/KEK.cer")"
     db_cert_der_hex="$(hexdump -ve '1/1 "%02x"' "${SBKEYS}/db.cer")"
-    dbx_empty_hash_hex="$(sha256sum /dev/null | awk '{ print $1 }')"
+    # dbx carries the retired/revoked UKI signing certificate (`uki-sign-old`)
+    # as an X509 entry, exactly like the db/KEK/PK cert fields. This replaces
+    # the previous empty-dbx placeholder (the hash of a zero-length file), so
+    # the OVF now ships a real revocation of the prior mixed-history cert.
+    dbx_cert_der_hex="$(hexdump -ve '1/1 "%02x"' "${SBKEYS}/uki-sign-old.cer")"
     sed -i \
       -e "s/{{PK_CERT_DER_HEX}}/${pk_cert_der_hex}/g" \
       -e "s/{{KEK_CERT_DER_HEX}}/${kek_cert_der_hex}/g" \
       -e "s/{{DB_CERT_DER_HEX}}/${db_cert_der_hex}/g" \
-      -e "s/{{DBX_EMPTY_HASH_HEX}}/${dbx_empty_hash_hex}/g" \
+      -e "s/{{DBX_CERT_DER_HEX}}/${dbx_cert_der_hex}/g" \
       "${ova_dir}/${ovf}"
   fi
 

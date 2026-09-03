@@ -12,16 +12,18 @@ use crate::predict::{
 ///
 /// AWS/Metal extend an action string before the separator, VMware does not.
 ///
-/// AWS/Metal: action -> separator -> shim -> grub -> vmlinuz
-/// VMware:              separator -> shim -> grub -> vmlinuz
+/// Shim->grub->vmlinuz layout:
+///   AWS/Metal: action -> separator -> shim -> grub -> vmlinuz
+///   VMware:              separator -> shim -> grub -> vmlinuz
+///
+/// Direct-UKI layout (uki-image): firmware loads exactly one EFI application,
+/// the signed UKI, so only that single image is measured:
+///   AWS/Metal: action -> separator -> uki
+///   VMware:              separator -> uki
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
     if ctx.partitions.boot_b.is_some() {
         return Ok(None);
     }
-
-    let shim_hash = get_authenticode_hash(ctx.shim)?;
-    let grub_hash = get_authenticode_hash(ctx.grub)?;
-    let vmlinuz_hash = get_authenticode_hash(ctx.vmlinuz)?;
 
     // AWS/Metal: action string first, VMware: start with zeros
     let mut pcr = match ctx.platform {
@@ -30,12 +32,22 @@ pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
         }
         Platform::Vmware => PCR_INIT_VAL,
     };
-
-    // Common: separator -> shim -> grub -> vmlinuz
     pcr = extend_pcr_separator(&pcr);
-    pcr = extend_pcr(&pcr, &shim_hash);
-    pcr = extend_pcr(&pcr, &grub_hash);
-    pcr = extend_pcr(&pcr, &vmlinuz_hash);
+
+    if !ctx.uki.is_empty() {
+        // Direct UKI boot: a single EFI application (the UKI) is loaded by
+        // firmware. The kernel is handed off internally by systemd-stub (not a
+        // separate LoadImage), so no further PCR 4 application measurements occur.
+        let uki_hash = get_authenticode_hash(ctx.uki)?;
+        pcr = extend_pcr(&pcr, &uki_hash);
+    } else {
+        let shim_hash = get_authenticode_hash(ctx.shim)?;
+        let grub_hash = get_authenticode_hash(ctx.grub)?;
+        let vmlinuz_hash = get_authenticode_hash(ctx.vmlinuz)?;
+        pcr = extend_pcr(&pcr, &shim_hash);
+        pcr = extend_pcr(&pcr, &grub_hash);
+        pcr = extend_pcr(&pcr, &vmlinuz_hash);
+    }
 
     Ok(Some((PcrIndex::Pcr4, PcrRecord::new(pcr))))
 }
@@ -43,7 +55,7 @@ pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::predict::test_support::{build_test_shim, MockCtx};
+    use crate::predict::test_support::{build_test_shim, build_test_uki, MockCtx};
 
     #[test]
     fn test_predict_aws() {
@@ -98,5 +110,75 @@ mod tests {
             .vmlinuz(&pe)
             .build();
         assert!(predict(&ctx).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_predict_uki_aws() {
+        // Direct-UKI layout: only the single UKI application is measured
+        // (action -> separator -> uki), with no shim/grub/vmlinuz.
+        let uki = build_test_uki();
+        let m = MockCtx::new();
+        let ctx = PcrContext::builder()
+            .platform(Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .uki(&uki)
+            .build();
+        let result = predict(&ctx).unwrap().unwrap();
+        assert_eq!(result.0, PcrIndex::Pcr4);
+
+        // Recompute the expected value from primitives.
+        let uki_hash = get_authenticode_hash(&uki).unwrap();
+        let mut expected =
+            extend_pcr_string(&PCR_INIT_VAL, "Calling EFI Application from Boot Option");
+        expected = extend_pcr_separator(&expected);
+        expected = extend_pcr(&expected, &uki_hash);
+        assert_eq!(result.1.sha256[0], hex::encode(expected));
+    }
+
+    #[test]
+    fn test_predict_uki_vmware() {
+        // VMware omits the leading action string; UKI still measured alone.
+        let uki = build_test_uki();
+        let m = MockCtx::new();
+        let ctx = PcrContext::builder()
+            .platform(Platform::Vmware)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .uki(&uki)
+            .build();
+        let result = predict(&ctx).unwrap().unwrap();
+
+        let uki_hash = get_authenticode_hash(&uki).unwrap();
+        let mut expected = extend_pcr_separator(&PCR_INIT_VAL);
+        expected = extend_pcr(&expected, &uki_hash);
+        assert_eq!(result.1.sha256[0], hex::encode(expected));
+    }
+
+    #[test]
+    fn test_predict_uki_differs_from_shim_chain() {
+        // The UKI single-image measurement must differ from the 3-image chain.
+        let pe = build_test_shim();
+        let uki = build_test_uki();
+        let m = MockCtx::new();
+
+        let chain_ctx = PcrContext::builder()
+            .platform(Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .shim(&pe)
+            .grub(&pe)
+            .vmlinuz(&pe)
+            .build();
+        let uki_ctx = PcrContext::builder()
+            .platform(Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .uki(&uki)
+            .build();
+
+        let chain = predict(&chain_ctx).unwrap().unwrap();
+        let single = predict(&uki_ctx).unwrap().unwrap();
+        assert_ne!(chain.1.sha256[0], single.1.sha256[0]);
     }
 }

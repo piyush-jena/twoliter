@@ -351,7 +351,7 @@ declare -A partsize partoff
 set_partition_sizes \
   "${OS_IMAGE_SIZE_GIB}" "${DATA_IMAGE_SIZE_GIB}" \
   "${PARTITION_PLAN}" "${IN_PLACE_UPDATES}" \
-  partsize partoff "${STANDALONE_IMAGE}"
+  partsize partoff "${STANDALONE_IMAGE}" "${UKI_IMAGE}"
 
 # Collect the partition labels, which are needed to look a partition up in the
 # GPT of the image we were given.
@@ -632,8 +632,9 @@ fi
 echo "${root_usage}" "${boot_usage}" | jq -s 'add | {disk_usage: .}' > "${OUTPUT_DIR}/artifact-metadata.json"
 
 # Predict PCR values after all signing is complete.
-# Skipped for UKI images, matching `rpm2img`.
-if [[ "${UEFI_SECURE_BOOT}" == "yes" && "${UKI_IMAGE}" == "no" ]]; then
+# pcrsys auto-detects the shim->grub->vmlinuz chain or the direct-UKI layout,
+# matching `rpm2img`.
+if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
   "${0%/*}/pcrsys" disk \
     --image "${OS_IMAGE}" \
     --efi-vars "${SBKEYS}/efi-vars.json" \

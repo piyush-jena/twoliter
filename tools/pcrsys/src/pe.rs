@@ -95,6 +95,17 @@ pub fn extract_sbat_level(pe_data: &[u8]) -> Result<Vec<u8>> {
     Ok(section_data[HEADER_SIZE..end].to_vec())
 }
 
+/// Determine whether a PE image is a systemd-stub Unified Kernel Image (UKI).
+///
+/// A UKI embeds the kernel in a `.linux` PE section (systemd-stub); shim and
+/// other chain loaders do not have one. In the direct-boot layout the ESP
+/// removable-media fallback path (`EFI/BOOT/BOOT{X64,AA64}.EFI`) holds either a
+/// shim (grub variants) or the signed UKI (uki-image variants); the presence of
+/// a `.linux` section is what tells them apart.
+pub fn is_uki(pe_data: &[u8]) -> bool {
+    get_section_data(pe_data, ".linux").is_ok()
+}
+
 /// Get raw data from a named PE section.
 fn get_section_data<'a>(pe_data: &'a [u8], name: &str) -> Result<&'a [u8]> {
     let pe = PeFile::<pe::ImageNtHeaders64>::parse(pe_data)
@@ -208,6 +219,63 @@ pub(crate) mod tests {
         pe
     }
 
+    /// Build a mock UKI PE (systemd-stub) with a `.linux` section.
+    ///
+    /// Uses only short (<=8 byte) section names so no COFF string table is
+    /// needed. `.linux` is the marker `is_uki` looks for.
+    pub fn build_test_uki() -> Vec<u8> {
+        let mut pe = vec![0u8; 0x800];
+
+        // DOS header
+        pe[0..2].copy_from_slice(b"MZ");
+        pe[0x3c..0x40].copy_from_slice(&0x40u32.to_le_bytes()); // PE header offset
+
+        // PE signature + COFF header at 0x40
+        pe[0x40..0x44].copy_from_slice(b"PE\0\0");
+        pe[0x44..0x46].copy_from_slice(&0x8664u16.to_le_bytes()); // Machine: x86_64
+        pe[0x46..0x48].copy_from_slice(&2u16.to_le_bytes()); // NumberOfSections
+        pe[0x4c..0x50].copy_from_slice(&0u32.to_le_bytes()); // PointerToSymbolTable
+        pe[0x50..0x54].copy_from_slice(&0u32.to_le_bytes()); // NumberOfSymbols
+        pe[0x54..0x56].copy_from_slice(&0xf0u16.to_le_bytes()); // SizeOfOptionalHeader
+        pe[0x56..0x58].copy_from_slice(&0x22u16.to_le_bytes()); // Characteristics
+
+        // Optional header (PE32+) at 0x58
+        pe[0x58..0x5a].copy_from_slice(&0x20bu16.to_le_bytes()); // Magic: PE32+
+        pe[0x5a] = 0x01; // MajorLinkerVersion
+        pe[0x78..0x7c].copy_from_slice(&0x1000u32.to_le_bytes()); // SectionAlignment
+        pe[0x7c..0x80].copy_from_slice(&0x200u32.to_le_bytes()); // FileAlignment
+        pe[0x80..0x84].copy_from_slice(&1u32.to_le_bytes()); // MajorOperatingSystemVersion
+        pe[0x88..0x8c].copy_from_slice(&1u32.to_le_bytes()); // MajorSubsystemVersion
+        pe[0x90..0x94].copy_from_slice(&0x4000u32.to_le_bytes()); // SizeOfImage
+        pe[0x94..0x98].copy_from_slice(&0x200u32.to_le_bytes()); // SizeOfHeaders
+        pe[0x9c..0x9e].copy_from_slice(&10u16.to_le_bytes()); // Subsystem: EFI Application
+        pe[0xc4..0xc8].copy_from_slice(&16u32.to_le_bytes()); // NumberOfRvaAndSizes
+
+        // Section headers start at 0x148 (after optional header)
+        // Section 1: .text
+        pe[0x148..0x150].copy_from_slice(b".text\0\0\0");
+        pe[0x150..0x154].copy_from_slice(&0x10u32.to_le_bytes()); // VirtualSize
+        pe[0x154..0x158].copy_from_slice(&0x1000u32.to_le_bytes()); // VirtualAddress
+        pe[0x158..0x15c].copy_from_slice(&0x200u32.to_le_bytes()); // SizeOfRawData
+        pe[0x15c..0x160].copy_from_slice(&0x200u32.to_le_bytes()); // PointerToRawData
+        pe[0x16c..0x170].copy_from_slice(&0x60000020u32.to_le_bytes()); // Characteristics
+
+        // Section 2: .linux (short name, fits in 8 bytes)
+        pe[0x170..0x178].copy_from_slice(b".linux\0\0");
+        pe[0x178..0x17c].copy_from_slice(&0x40u32.to_le_bytes()); // VirtualSize
+        pe[0x17c..0x180].copy_from_slice(&0x2000u32.to_le_bytes()); // VirtualAddress
+        pe[0x180..0x184].copy_from_slice(&0x200u32.to_le_bytes()); // SizeOfRawData
+        pe[0x184..0x188].copy_from_slice(&0x400u32.to_le_bytes()); // PointerToRawData
+        pe[0x194..0x198].copy_from_slice(&0x40000040u32.to_le_bytes()); // Characteristics
+
+        // .text data at 0x200
+        pe[0x200..0x210].fill(0xcc);
+        // .linux data at 0x400 (mock embedded kernel bytes)
+        pe[0x400..0x440].fill(0xab);
+
+        pe
+    }
+
     #[test]
     fn test_authenticode_hash() {
         let pe = build_test_shim();
@@ -281,5 +349,30 @@ pub(crate) mod tests {
         let shim = build_test_shim();
         let err = get_section_data(&shim, ".nonexistent").unwrap_err();
         assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_is_uki_true() {
+        let uki = build_test_uki();
+        assert!(is_uki(&uki));
+    }
+
+    #[test]
+    fn test_is_uki_false_for_shim() {
+        // A shim has no `.linux` section.
+        let shim = build_test_shim();
+        assert!(!is_uki(&shim));
+    }
+
+    #[test]
+    fn test_is_uki_false_for_garbage() {
+        assert!(!is_uki(&[0u8; 100]));
+    }
+
+    #[test]
+    fn test_authenticode_hash_uki() {
+        // The UKI test fixture must be Authenticode-hashable (used by PCR 4).
+        let uki = build_test_uki();
+        get_authenticode_hash(&uki).unwrap();
     }
 }

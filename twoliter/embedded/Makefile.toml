@@ -689,13 +689,23 @@ profile="${BUILDSYS_SBKEYS_PROFILE_DIR}"
 
 found=0
 # A local profile has signing keys and certificates, while an AWS profile
-# has a config for the aws-kms-pkcs11 helper. Either type is supported.
+# has a config for the aws-kms-pkcs11 helper. Either type is supported. The
+# uki-sign key/cert is the UKI-only signing identity; a local profile that
+# predates it cannot sign UKIs, so require it here to force regeneration
+# rather than failing deep inside `sbsetup_local_profile` at build time.
+# The uki-sign-old cert is the prior (revoked) UKI signing identity placed in
+# dbx; require it too so a profile predating revocation regenerates rather than
+# failing in `sbsetup_wrapup`/`provide_dbx`/`generate_ova`.
 if [ -s "${profile}/shim-sign.key" ] && \
    [ -s "${profile}/shim-sign.crt" ] && \
    [ -s "${profile}/code-sign.key" ] && \
-   [ -s "${profile}/code-sign.crt" ] ; then
+   [ -s "${profile}/code-sign.crt" ] && \
+   [ -s "${profile}/uki-sign.key" ] && \
+   [ -s "${profile}/uki-sign.crt" ] && \
+   [ -s "${profile}/uki-sign-old.crt" ] ; then
    let found+=1
-elif [ -s "${profile}/kms-sign.json" ] ; then
+elif [ -s "${profile}/kms-sign.json" ] && \
+   [ -s "${profile}/uki-sign-old.crt" ] ; then
    let found+=1
 fi
 
