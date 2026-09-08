@@ -56,7 +56,7 @@ VERITY_HASH_BLOCK_SIZE=4096
 SBKEYS="${HOME}/sbkeys"
 
 # Pre-emptively declare global arrays to be populated later.
-declare -a SHIM_SIGN_KEY CODE_SIGN_KEY
+declare -a SHIM_SIGN_KEY CODE_SIGN_KEY UKI_SIGN_KEY
 
 sanity_checks() {
   local output_fmt partition_plan ovf_template uefi_secure_boot sbom_package_dir
@@ -615,6 +615,7 @@ sbsetup_aws_profile() {
   export AWS_KMS_PKCS11_DEBUG=1
   SHIM_SIGN_KEY+=(-c shim-sign-key -t shim-sign-key)
   CODE_SIGN_KEY+=(-c code-sign-key -t code-sign-key)
+  UKI_SIGN_KEY+=(-c uki-sign-key -t uki-sign-key)
 
   local sb_key_source="aws"
   sbsetup_wrapup "${sb_key_source}"
@@ -641,6 +642,15 @@ sbsetup_local_profile() {
     -certfile "${SBKEYS}/vendor.crt" \
     -out "${SBKEYS}/code-sign.p12"
 
+  # The UKI-only signing identity.
+  openssl pkcs12 \
+    -export \
+    -passout pass: \
+    -inkey "${SBKEYS}/uki-sign.key" \
+    -in "${SBKEYS}/uki-sign.crt" \
+    -certfile "${SBKEYS}/db.crt" \
+    -out "${SBKEYS}/uki-sign.p12"
+
   # Import certificates and private key archive.
   local pedb="/etc/pki/pesign"
 
@@ -652,9 +662,13 @@ sbsetup_local_profile() {
   certutil -d "${pedb}" -A -n code-sign-key -i "${SBKEYS}/code-sign.crt" -t ",,P"
   pk12util -d "${pedb}" -i "${SBKEYS}/code-sign.p12" -W ""
 
+  certutil -d "${pedb}" -A -n uki-sign-key -i "${SBKEYS}/uki-sign.crt" -t ",,P"
+  pk12util -d "${pedb}" -i "${SBKEYS}/uki-sign.p12" -W ""
+
   certutil -d "${pedb}" -L
   SHIM_SIGN_KEY+=(-c shim-sign-key)
   CODE_SIGN_KEY+=(-c code-sign-key)
+  UKI_SIGN_KEY+=(-c uki-sign-key)
 
   local sb_key_source="local"
   sbsetup_wrapup "${sb_key_source}"
@@ -807,12 +821,17 @@ uki_bootconfig_cmdline() {
   echo "${tokens}"
 }
 
-sign_systemd_boot() {
-  local loader
-  loader="${1:?}"
+# Sign a Unified Kernel Image with the UKI-only signing identity.
+#
+# The UKI is signed with the fresh `uki-sign` key and verified against
+# `db.cer`: the uki-sign certificate is issued off the db CA, so the signed
+# UKI chains to `db` and is authorized by firmware under Secure Boot.
+sign_uki() {
+  local uki
+  uki="${1:?}"
 
-  undo_sign "${loader}"
-  do_sign "${loader}" "${SBKEYS}/vendor.cer" CODE_SIGN_KEY
+  undo_sign "${uki}"
+  do_sign "${uki}" "${SBKEYS}/db.cer" UKI_SIGN_KEY
 }
 
 generate_hmac() {
