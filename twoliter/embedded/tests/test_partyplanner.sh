@@ -201,6 +201,115 @@ else
 fi
 
 ###############################################################################
+# Test 6b: merged UKI layout (uki_image=yes) collapses the ESP + XBOOTLDR
+# BOOT-A into a single grown ESP-typed partition. There is NO separate BOOT-A
+# partition; the space it would have used is reclaimed into RESERVED-A, and the
+# ESP is placed immediately before ROOT-A so ROOT-A/HASH-A sit at ESP+1/ESP+2
+# (the dm-verity PARTNROFF=1|2 anchor). The overall image size is unchanged.
+#
+# 2 GiB split image, single-bank (UKI is incompatible with in-place-updates):
+#   EFI-A      = (5*2) + (40*2)         = 90  (was 10 = EFI_MIB * 2)
+#   BOOT-A     = (dropped entirely)
+#   RESERVED-A = (2*15 - 5)*2           = 50
+# Every partition from ROOT-A onward keeps the same size as the non-UKI
+# single-bank 2 GiB split layout; only EFI-A grows, BOOT-A vanishes, and
+# RESERVED-A absorbs the difference.
+###############################################################################
+echo "Test 6b: merged UKI layout drops BOOT-A"
+declare -A uki_size uki_off non_uki_size non_uki_off
+set_partition_sizes 2 1 split no uki_size uki_off no yes
+set_partition_sizes 2 1 split no non_uki_size non_uki_off no no
+
+assert_eq "${uki_size[EFI-A]}"      "90" "UKI EFI-A size == 2*EFI_MIB size + 2*BOOT_A size"
+assert_eq "${non_uki_size[EFI-A]}"  "10" "non-UKI EFI-A size unchanged"
+
+# The merged UKI layout has NO XBOOTLDR BOOT-A partition at all.
+assert_unset uki_size "BOOT-A" "UKI layout has no BOOT-A size"
+assert_unset uki_off  "BOOT-A" "UKI layout has no BOOT-A offset"
+
+# RESERVED-A stays the same.
+assert_eq "${uki_size[RESERVED-A]}" "50" "UKI RESERVED-A stays the same"
+assert_eq "${non_uki_size[RESERVED-A]}" "50" "non-UKI RESERVED-A unchanged"
+
+# The ESP must be large enough to hold the ~14 MiB UKI with headroom.
+if (( uki_size[EFI-A] >= 14 )); then
+  pass "UKI EFI-A (${uki_size[EFI-A]} MiB) >= 14 MiB UKI"
+else
+  fail "UKI EFI-A (${uki_size[EFI-A]} MiB) too small for a ~14 MiB UKI"
+fi
+
+# EFI-A offset is unchanged (it still follows BIOS).
+assert_eq "${uki_off[EFI-A]}" "${non_uki_off[EFI-A]}" "EFI-A offset unchanged"
+
+# ROOT-A must sit immediately after the ESP (ESP+1): no BOOT-A between them.
+assert_eq "${uki_off[ROOT-A]}" "$((uki_off[EFI-A] + uki_size[EFI-A]))" \
+  "UKI ROOT-A immediately follows EFI-A (ESP+1)"
+# HASH-A must sit immediately after ROOT-A (ESP+2).
+assert_eq "${uki_off[HASH-A]}" "$((uki_off[ROOT-A] + uki_size[ROOT-A]))" \
+  "UKI HASH-A immediately follows ROOT-A (ESP+2)"
+
+# ROOT-A/HASH-A/PRIVATE sizes are unchanged versus the non-UKI layout.
+assert_eq "${uki_size[ROOT-A]}" "${non_uki_size[ROOT-A]}" "ROOT-A size unchanged in UKI layout"
+assert_eq "${uki_size[HASH-A]}" "${non_uki_size[HASH-A]}" "HASH-A size unchanged in UKI layout"
+assert_eq "${uki_size[PRIVATE]}" "${non_uki_size[PRIVATE]}" "PRIVATE size unchanged in UKI layout"
+
+# Crucially, the total consumed space (and therefore the image size) must be
+# identical between the two layouts: merging partitions must not enlarge the image.
+uki_total=$((uki_off[DATA-A] + uki_size[DATA-A]))
+non_uki_total=$((non_uki_off[DATA-A] + non_uki_size[DATA-A]))
+assert_eq "${uki_total}" "${non_uki_total}" "UKI layout total == non-UKI total (image size unchanged)"
+
+###############################################################################
+# Test 6c: merged UKI partition types/labels. For UKI there is no separate
+# XBOOTLDR BOOT partition -- the ESP is the boot partition -- so
+# `set_partition_types` must NOT assign the XBOOTLDR type to any partition, and
+# the EFI system partition must keep its EFI-System type. The grub (non-UKI)
+# layout must still type BOOT-A/B as the Bottlerocket boot type. The merged ESP
+# keeps the EFI-SYSTEM label; the grub layout keeps BOTTLEROCKET-BOOT-A.
+###############################################################################
+echo "Test 6c: merged UKI partition types (no XBOOTLDR) vs grub types"
+declare -A uki_type non_uki_type
+set_partition_types uki_type yes
+set_partition_types non_uki_type no
+
+# The EFI system partition keeps the EFI-System type GUID in both layouts.
+assert_eq "${uki_type[EFI-A]}"     "${EFI_SYSTEM_TYPECODE}" "UKI EFI-A is EFI-System type"
+assert_eq "${non_uki_type[EFI-A]}" "${EFI_SYSTEM_TYPECODE}" "grub EFI-A is EFI-System type"
+
+# UKI has no boot partition to type at all: neither bank is set.
+assert_unset uki_type "BOOT-A" "UKI layout assigns no BOOT-A type"
+assert_unset uki_type "BOOT-B" "UKI layout assigns no BOOT-B type"
+
+# No entry in the UKI type table may carry the XBOOTLDR type GUID.
+uki_has_xbootldr="no"
+for key in "${!uki_type[@]}"; do
+  if [[ "${uki_type[${key}]}" == "${BOTTLEROCKET_XBOOTLDR_TYPECODE}" ]]; then
+    uki_has_xbootldr="yes"
+  fi
+done
+assert_eq "${uki_has_xbootldr}" "no" "no UKI partition carries the XBOOTLDR type"
+
+# Exactly one partition in the UKI type table carries the EFI-System type.
+efi_system_count=0
+for key in "${!uki_type[@]}"; do
+  if [[ "${uki_type[${key}]}" == "${EFI_SYSTEM_TYPECODE}" ]]; then
+    efi_system_count=$((efi_system_count + 1))
+  fi
+done
+assert_eq "${efi_system_count}" "1" "exactly one EFI-System-typed partition for UKI"
+
+# The grub layout still types BOOT-A/B as the Bottlerocket boot type.
+assert_eq "${non_uki_type[BOOT-A]}" "${BOTTLEROCKET_BOOT_TYPECODE}" "grub BOOT-A is Bottlerocket boot type"
+assert_eq "${non_uki_type[BOOT-B]}" "${BOTTLEROCKET_BOOT_TYPECODE}" "grub BOOT-B is Bottlerocket boot type"
+
+# Labels: the merged UKI ESP keeps the EFI-SYSTEM label; the grub layout keeps
+# the BOTTLEROCKET-BOOT-A label on its ext4 boot partition.
+declare -A part_label
+set_partition_labels part_label
+assert_eq "${part_label[EFI-A]}"  "EFI-SYSTEM"          "EFI-A keeps the EFI-SYSTEM label"
+assert_eq "${part_label[BOOT-A]}" "BOTTLEROCKET-BOOT-A" "grub BOOT-A keeps its label"
+
+###############################################################################
 # Test 7: `set_eif_partition_sizes` tight-fit layout.
 #
 # With rootfs_mib=100 and verity_mib=8:
