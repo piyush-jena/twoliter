@@ -156,6 +156,115 @@ pub fn uki_cmdline_load_options(pe_data: &[u8]) -> Result<Vec<u8>> {
     Ok(load_options)
 }
 
+/// Pad `buf` with NULs until its length since `start` is a multiple of 4;
+/// `newc` aligns every record (and file data) to a 4-byte boundary.
+fn pad4(buf: &mut Vec<u8>, start: usize) {
+    while !(buf.len() - start).is_multiple_of(4) {
+        buf.push(0);
+    }
+}
+
+/// Write a CPIO `newc` header (magic + 13 8-hex-digit fields). Every record we
+/// emit uses uid/gid/mtime/dev*/crc = 0 and nlink = 1, so only `inode`, `mode`,
+/// `filesize` and `namesize` vary.
+fn cpio_header(buf: &mut Vec<u8>, inode: u32, mode: u32, filesize: u32, namesize: u32) {
+    buf.extend_from_slice(b"070701");
+    // inode, mode, uid, gid, nlink, mtime, filesize, dev{major,minor},
+    // rdev{major,minor}, namesize, crc
+    let fields = [inode, mode, 0, 0, 1, 0, filesize, 0, 0, 0, 0, namesize, 0];
+    for f in fields {
+        buf.extend_from_slice(format!("{f:08x}").as_bytes());
+    }
+}
+
+/// CPIO `newc` directory inode (systemd-stub `pack_cpio_dir`).
+fn cpio_dir(buf: &mut Vec<u8>, path: &str, access_mode: u32, inode: u32) {
+    let start = buf.len();
+    cpio_header(buf, inode, access_mode | 0o040000, 0, path.len() as u32 + 1);
+    buf.extend_from_slice(path.as_bytes());
+    buf.push(0);
+    pad4(buf, start);
+}
+
+/// CPIO `newc` regular-file inode (systemd-stub `pack_cpio_one`), named
+/// `<dir_prefix>/<filename>`.
+fn cpio_file(
+    buf: &mut Vec<u8>,
+    dir_prefix: &str,
+    filename: &str,
+    data: &[u8],
+    access_mode: u32,
+    inode: u32,
+) {
+    let start = buf.len();
+    let namesize = dir_prefix.len() as u32 + filename.len() as u32 + 2; // '/' + NUL
+    cpio_header(
+        buf,
+        inode,
+        access_mode | 0o100000,
+        data.len() as u32,
+        namesize,
+    );
+    buf.extend_from_slice(dir_prefix.as_bytes());
+    buf.push(b'/');
+    buf.extend_from_slice(filename.as_bytes());
+    buf.push(0);
+    pad4(buf, start);
+    buf.extend_from_slice(data);
+    pad4(buf, start);
+}
+
+/// CPIO `newc` archive trailer (systemd-stub `pack_cpio_trailer`), measured
+/// verbatim. Kept as a literal rather than built via [`cpio_header`] because
+/// systemd emits the trailer's `namesize` in UPPERCASE hex (`0000000B`) while
+/// our other headers use lowercase; a live-TPM check confirmed the uppercase
+/// form. The four NUL bytes after `TRAILER!!!` are its name NUL plus padding to
+/// a 4-byte boundary.
+const CPIO_TRAILER: &[u8] = concat!(
+    "070701",   // magic
+    "00000000", // inode
+    "00000000", // mode
+    "00000000", // uid
+    "00000000", // gid
+    "00000001", // nlink
+    "00000000", // mtime
+    "00000000", // filesize
+    "00000000", // devmajor
+    "00000000", // devminor
+    "00000000", // rdevmajor
+    "00000000", // rdevminor
+    "0000000B", // namesize = 11 ("TRAILER!!!\0"), uppercase per systemd
+    "00000000", // crc
+    "TRAILER!!!",
+    "\0\0\0\0",
+)
+.as_bytes();
+
+/// The cpio systemd-stub's `pack_cpio_literal()` produces for one embedded
+/// section: the `.extra` dir (0555), the file `.extra/<filename>` (0444), and
+/// the trailer.
+fn build_extra_cpio(filename: &str, data: &[u8]) -> Vec<u8> {
+    let mut cpio = Vec::new();
+    cpio_dir(&mut cpio, ".extra", 0o555, 1);
+    cpio_file(&mut cpio, ".extra", filename, data, 0o444, 2);
+    cpio.extend_from_slice(CPIO_TRAILER);
+    cpio
+}
+
+/// Reconstruct the initrd byte stream a direct-UKI boot hands the kernel, which
+/// the Linux EFI stub hashes into PCR 9 (event `Linux initrd`).
+///
+/// systemd-stub embeds `.ucode`, `.initrd`, `.pcrsig`, `.pcrpkey`, `.osrel` and
+/// `.profile`. In a Bottlerocket UKI all but `.osrel` is empty, so we use only
+/// that for calculation. Any change in any of the above sections would break
+/// PCR9 calculations.
+pub fn build_uki_synthetic_initrd(pe_data: &[u8]) -> Result<Vec<u8>> {
+    match get_section_data(pe_data, ".osrel") {
+        Ok(osrel) => Ok(build_extra_cpio("os-release", osrel)),
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -456,5 +565,27 @@ pub(crate) mod tests {
         // The dm-mod.create quotes are preserved verbatim (NOT quote-repaired):
         // the `"` char (0x22) appears as the UTF-16LE unit 22 00.
         assert!(lo.windows(2).any(|w| w == [0x22, 0x00]));
+    }
+
+    #[test]
+    fn test_build_uki_synthetic_initrd_osrel_cpio() {
+        let uki = build_test_uki();
+        let initrd = build_uki_synthetic_initrd(&uki).unwrap();
+
+        // Golden SHA256 of the systemd-stub `/.extra/os-release` cpio built from
+        // TEST_UKI_OSREL. Computed independently from the cpio `newc` format.
+        let digest: [u8; 32] = Sha256::digest(&initrd).into();
+        assert_eq!(
+            hex::encode(digest),
+            "ce5bfa54adc1aba0973b10e43e2e45ca7037d11fc27ca066fe7fa293bdd86d08"
+        );
+
+        // Structural sanity: a newc archive containing the .extra dir, the
+        // os-release file and the trailer.
+        assert!(initrd.starts_with(b"070701"));
+        assert!(initrd.windows(6).any(|w| w == b".extra"));
+        assert!(initrd.windows(10).any(|w| w == b"os-release"));
+        assert!(initrd.windows(10).any(|w| w == b"TRAILER!!!"));
+        assert!(initrd.len().is_multiple_of(4));
     }
 }
