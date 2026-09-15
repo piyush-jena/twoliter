@@ -687,23 +687,56 @@ script = [
 # Check the profile for all files needed for Secure Boot signing.
 profile="${BUILDSYS_SBKEYS_PROFILE_DIR}"
 
+# The signing identities depend on the variant's image format. A `uki` image
+# uses a single `uki-sign` key/cert; every other format uses the standard
+# `shim-sign`/`code-sign`/`vendor`/`config-sign` identities. Resolve the image
+# format with buildsys (the same parser the rest of the build uses) so the
+# right identities are required and generated.
+image_format="$("${TWOLITER_TOOLS_DIR}/buildsys" show-image-format \
+  --cargo-manifest-dir "${BUILDSYS_ROOT_DIR}/variants/${BUILDSYS_VARIANT}")"
+if [ "${image_format}" = "uki" ] ; then
+  sbkeys_mode="uki"
+else
+  sbkeys_mode="standard"
+fi
+
 found=0
 # A local profile has signing keys and certificates, while an AWS profile
 # has a config for the aws-kms-pkcs11 helper. Either type is supported.
-if [ -s "${profile}/shim-sign.key" ] && \
-   [ -s "${profile}/shim-sign.crt" ] && \
-   [ -s "${profile}/code-sign.key" ] && \
-   [ -s "${profile}/code-sign.crt" ] ; then
-   let found+=1
-elif [ -s "${profile}/kms-sign.json" ] ; then
-   let found+=1
+if [ "${sbkeys_mode}" = "uki" ] ; then
+  # UKI images sign with the single `uki-sign` identity.
+  if [ -s "${profile}/uki-sign.key" ] && \
+     [ -s "${profile}/uki-sign.crt" ] ; then
+     let found+=1
+  elif [ -s "${profile}/kms-sign.json" ] ; then
+     let found+=1
+  fi
+else
+  # Standard images sign with the `shim-sign` and `code-sign` identities.
+  if [ -s "${profile}/shim-sign.key" ] && \
+     [ -s "${profile}/shim-sign.crt" ] && \
+     [ -s "${profile}/code-sign.key" ] && \
+     [ -s "${profile}/code-sign.crt" ] ; then
+     let found+=1
+  elif [ -s "${profile}/kms-sign.json" ] ; then
+     let found+=1
+  fi
 fi
 
 expected=1
-for f in {PK,KEK,db,vendor}.crt config-sign.key efi-vars.{json,aws} ; do
+# PK/KEK/db CAs and the EFI vars are common to both modes.
+for f in {PK,KEK,db}.crt efi-vars.{json,aws} ; do
   let expected+=1
   [ -s "${profile}/${f}" ] && let found+=1
 done
+
+# The vendor CA and grub config signing key only exist for standard images.
+if [ "${sbkeys_mode}" != "uki" ] ; then
+  for f in vendor.crt config-sign.key ; do
+    let expected+=1
+    [ -s "${profile}/${f}" ] && let found+=1
+  done
+fi
 
 if [ "${found}" -eq "${expected}" ] ; then
   exit 0
@@ -721,7 +754,8 @@ echo "Generating local keys." >&2
 mkdir -p "${BUILDSYS_SBKEYS_PROFILE_DIR}"
 ${BUILDSYS_SBKEYS_DIR}/generate-local-sbkeys \
   --sdk-image "${TLPRIVATE_SDK_IMAGE}" \
-  --output-dir "${BUILDSYS_SBKEYS_PROFILE_DIR}"
+  --output-dir "${BUILDSYS_SBKEYS_PROFILE_DIR}" \
+  --mode "${sbkeys_mode}"
 '''
 ]
 
@@ -1060,18 +1094,28 @@ trap 'cleanup' EXIT
 
 export PATH="${TWOLITER_TOOLS_DIR}:${PATH}"
 
-# BOOT-A is FAT for UKI images (see the UKI_IMAGE branch in rpm2img/img2img),
-# and ext4 otherwise. The variant's image format isn't plumbed through to
-# cargo-make, so pick whichever boot artifact 'cargo make' actually produced.
-bootlz4="${BUILDSYS_VARIANT_DIR}/${BUILDSYS_NAME_FULL}-boot.fat.lz4"
-if [ ! -s "${bootlz4}" ]; then
-   bootlz4="${BUILDSYS_VARIANT_DIR}/${BUILDSYS_NAME_FULL}-boot.ext4.lz4"
-fi
+# Resolve the variant's image format with buildsys (the same parser the rest of
+# the build uses). UKI images use a merged boot layout with no separate BOOT-A
+# partition, so they have no boot image to publish; every other layout has an
+# ext4 BOOT-A partition image.
+image_format="$("${TWOLITER_TOOLS_DIR}/buildsys" show-image-format \
+  --cargo-manifest-dir "${BUILDSYS_ROOT_DIR}/variants/${BUILDSYS_VARIANT}")"
+BOOT_IMAGE_ARG=()
 rootlz4="${BUILDSYS_VARIANT_DIR}/${BUILDSYS_NAME_FULL}-root.ext4.lz4"
 hashlz4="${BUILDSYS_VARIANT_DIR}/${BUILDSYS_NAME_FULL}-root.verity.lz4"
-if [ ! -s "${bootlz4}" ] || [ ! -s "${rootlz4}" ] || [ ! -s "${hashlz4}" ]; then
+if [ ! -s "${rootlz4}" ] || [ ! -s "${hashlz4}" ]; then
    echo "Image files don't exist for the current version/commit - ${BUILDSYS_VERSION_FULL} - please run 'cargo make'" >&2
    exit 1
+fi
+if [ "${image_format}" = "uki" ] ; then
+   : # UKI: no boot image to publish
+else
+   bootlz4="${BUILDSYS_VARIANT_DIR}/${BUILDSYS_NAME_FULL}-boot.ext4.lz4"
+   if [ ! -s "${bootlz4}" ]; then
+      echo "Image files don't exist for the current version/commit - ${BUILDSYS_VERSION_FULL} - please run 'cargo make'" >&2
+      exit 1
+   fi
+   BOOT_IMAGE_ARG=(--boot-image "${bootlz4}")
 fi
 
 COPY_REPO_TARGETS=()
@@ -1134,7 +1178,7 @@ pubsys \
    --version "${BUILDSYS_VERSION_IMAGE}" \
    --variant "${BUILDSYS_VARIANT}" \
    \
-   --boot-image "${bootlz4}" \
+   "${BOOT_IMAGE_ARG[@]}" \
    --root-image "${rootlz4}" \
    --hash-image "${hashlz4}" \
    ${LINK_REPO_TARGETS[*]} \
