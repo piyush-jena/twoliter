@@ -45,6 +45,7 @@ pub(crate) enum Command {
     BuildKit(Box<BuildKitArgs>),
     BuildVariant(Box<BuildVariantArgs>),
     RepackVariant(Box<RepackVariantArgs>),
+    ShowImageFormat(Box<ShowImageFormatArgs>),
 }
 
 impl Command {
@@ -54,6 +55,7 @@ impl Command {
             Command::BuildKit(_) => BuildType::Kit,
             Command::BuildVariant(_) => BuildType::Variant,
             Command::RepackVariant(_) => BuildType::Repack,
+            Command::ShowImageFormat(_) => BuildType::Variant,
         }
     }
 }
@@ -200,6 +202,14 @@ pub(crate) struct RepackVariantArgs {
 
     #[command(flatten)]
     pub(crate) common: Common,
+}
+
+/// Print the resolved `image-format` for a variant's manifest to stdout.
+#[derive(Debug, Parser)]
+pub(crate) struct ShowImageFormatArgs {
+    /// Directory containing the variant's `Cargo.toml`.
+    #[arg(long, env = "CARGO_MANIFEST_DIR")]
+    pub(crate) cargo_manifest_dir: PathBuf,
 }
 
 /// Returns the environment variables that need to be watched for a given `[BuildType]`.

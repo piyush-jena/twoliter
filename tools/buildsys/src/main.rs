@@ -19,11 +19,12 @@ mod vendormod;
 
 use crate::args::{
     BuildKitArgs, BuildPackageArgs, BuildVariantArgs, Buildsys, Command, RepackVariantArgs,
+    ShowImageFormatArgs,
 };
 use crate::builder::DockerBuild;
 use buildsys::manifest::{
-    resolved_image_layout, validate_image_features, BundleModule, ImageFeature, Manifest,
-    ManifestInfo, SupportedArch,
+    resolved_image_layout, validate_image_features, BundleModule, ImageFeature, ImageFormat,
+    Manifest, ManifestInfo, SupportedArch,
 };
 use buildsys_config::EXTERNAL_KIT_METADATA;
 use cache::LookasideCache;
@@ -121,13 +122,34 @@ fn main() {
 }
 
 fn run(args: Buildsys) -> Result<()> {
-    args::rerun_for_envs(args.command.build_type());
     match args.command {
-        Command::BuildPackage(args) => build_package(*args),
-        Command::BuildKit(args) => build_kit(*args),
-        Command::BuildVariant(args) => build_variant(*args),
-        Command::RepackVariant(args) => repack_variant(*args),
+        // A read-only query that must not emit cargo build-script directives
+        // (they would pollute the value printed to stdout).
+        Command::ShowImageFormat(args) => show_image_format(*args),
+        command => {
+            args::rerun_for_envs(command.build_type());
+            match command {
+                Command::BuildPackage(args) => build_package(*args),
+                Command::BuildKit(args) => build_kit(*args),
+                Command::BuildVariant(args) => build_variant(*args),
+                Command::RepackVariant(args) => repack_variant(*args),
+                Command::ShowImageFormat(_) => unreachable!("handled above"),
+            }
+        }
     }
+}
+
+/// Print the resolved `image-format` for a variant manifest (defaulting to
+/// `raw` when unset), using the same parser as the rest of the build.
+fn show_image_format(args: ShowImageFormatArgs) -> Result<()> {
+    let manifest_path = args.cargo_manifest_dir.join("Cargo.toml");
+    let manifest = ManifestInfo::new(&manifest_path).context(error::ManifestParseSnafu)?;
+    let format = manifest
+        .image_format()
+        .map(ImageFormat::as_str)
+        .unwrap_or("raw");
+    println!("{format}");
+    Ok(())
 }
 
 fn build_package(args: BuildPackageArgs) -> Result<()> {
