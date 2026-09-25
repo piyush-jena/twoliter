@@ -155,6 +155,7 @@ async fn test_install_tools() {
     assert!(toolsdir.join("guest-images-helper").is_file());
     assert!(toolsdir.join("img2img").is_file());
     assert!(toolsdir.join("imghelper").is_file());
+    assert!(toolsdir.join("ab-boot-helper").is_file());
     assert!(toolsdir.join("metadata.spec").is_file());
     assert!(toolsdir.join("builder-group.spec").is_file());
     assert!(toolsdir.join("partyplanner").is_file());

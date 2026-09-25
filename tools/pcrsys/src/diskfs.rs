@@ -7,7 +7,7 @@ use crate::gpt::PartitionLayout;
 
 use ext4_view::Ext4;
 use fatfs::{FileSystem, FsOptions};
-use snafu::{whatever, ResultExt};
+use snafu::{whatever, OptionExt, ResultExt};
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 /// Extract shim EFI binary from ESP (EFI-A partition) using fatfs.
@@ -24,6 +24,27 @@ pub fn extract_grub<R: Read + Seek>(disk: &mut R, partitions: &PartitionLayout) 
     extract_efi_file(disk, partitions, &["grubaa64.efi", "grubx64.efi"])
 }
 
+/// Detect the dedicated GPT systemd loader. Errors reading the filesystem are
+/// propagated; absence is the only condition interpreted as a legacy image.
+pub fn has_systemd_boot_ab<R: Read + Seek>(
+    disk: &mut R,
+    partitions: &PartitionLayout,
+) -> Result<bool> {
+    let Some(image) = find_efi_file(
+        disk,
+        partitions,
+        &["systemd-bootaa64.efi", "systemd-bootx64.efi"],
+    )?
+    else {
+        return Ok(false);
+    };
+    let marker = b"#### LoaderInfo: systemd-boot-br ";
+    if !image.windows(marker.len()).any(|bytes| bytes == marker) {
+        whatever!("systemd boot image is not the supported GPT loader");
+    }
+    Ok(true)
+}
+
 /// Extract an EFI file from `/EFI/BOOT/` on the ESP, trying each name in order.
 ///
 /// Returns the contents of the first file found from the `names` list.
@@ -32,6 +53,15 @@ fn extract_efi_file<R: Read + Seek>(
     partitions: &PartitionLayout,
     names: &[&str],
 ) -> Result<Vec<u8>> {
+    find_efi_file(disk, partitions, names)?
+        .whatever_context(format!("none of {names:?} found in /EFI/BOOT/"))
+}
+
+fn find_efi_file<R: Read + Seek>(
+    disk: &mut R,
+    partitions: &PartitionLayout,
+    names: &[&str],
+) -> Result<Option<Vec<u8>>> {
     let start = partitions.efi_a.offset_bytes();
     let size = partitions.efi_a.size_bytes() as usize;
 
@@ -59,11 +89,11 @@ fn extract_efi_file<R: Read + Seek>(
             let mut contents = Vec::new();
             file.read_to_end(&mut contents)
                 .whatever_context("failed to read EFI file")?;
-            return Ok(contents);
+            return Ok(Some(contents));
         }
     }
 
-    whatever!("none of {:?} found in /EFI/BOOT/", names);
+    Ok(None)
 }
 
 /// Extract vmlinuz from BOOT-A partition using ext4-view.
@@ -502,6 +532,38 @@ mod tests {
                 start_lba: 0,
                 end_lba: 2047,
             }, // Same as boot_a for testing bootconfig
+        }
+    }
+
+    #[test]
+    fn detects_only_the_dedicated_systemd_loader() {
+        use std::io::Write;
+        for marker in [
+            None,
+            Some(b"#### LoaderInfo: systemd-boot-br 257 ####".as_slice()),
+            Some(b"stock systemd".as_slice()),
+        ] {
+            let mut disk = Cursor::new(vec![0; 1024 * 1024]);
+            fatfs::format_volume(&mut disk, fatfs::FormatVolumeOptions::new()).unwrap();
+            disk.set_position(0);
+            {
+                let fs = FileSystem::new(&mut disk, FsOptions::new()).unwrap();
+                let efi = fs.root_dir().create_dir("EFI").unwrap();
+                let boot = efi.create_dir("BOOT").unwrap();
+                if let Some(bytes) = marker {
+                    boot.create_file("systemd-bootx64.efi")
+                        .unwrap()
+                        .write_all(bytes)
+                        .unwrap();
+                }
+            }
+            disk.set_position(0);
+            let result = has_systemd_boot_ab(&mut disk, &mock_layout_esp());
+            match marker {
+                None => assert!(!result.unwrap()),
+                Some(bytes) if bytes.starts_with(b"#### LoaderInfo:") => assert!(result.unwrap()),
+                Some(_) => assert!(result.is_err()),
+            }
         }
     }
 

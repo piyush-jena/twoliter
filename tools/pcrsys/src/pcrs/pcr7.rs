@@ -32,6 +32,11 @@ const VMWARE_SIGNATURE_OWNER_GUID: [u8; 16] = [
 /// - AWS/Metal: uses SignatureOwner GUID from efi-vars.json
 /// - VMware: uses VMware's SignatureOwner GUID for enrolled keys
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
+    // Legacy bank handoff can add a second shim and its policy measurements.
+    if ctx.systemd_boot_ab {
+        return Ok(None);
+    }
+
     let vendor_cert = extract_vendor_cert(ctx.shim)?;
     let sbat_level = extract_sbat_level(ctx.shim)?;
 
@@ -171,6 +176,18 @@ mod tests {
     use super::*;
     use crate::efi::{EfiVar, EfiVars, EFI_CERT_X509_GUID};
     use crate::predict::test_support::{build_test_shim, MockCtx};
+
+    #[test]
+    fn systemd_boot_ab_does_not_emit_a_legacy_prediction() {
+        let m = MockCtx::dual_bank();
+        let ctx = PcrContext::builder()
+            .platform(crate::platform::Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .systemd_boot_ab(true)
+            .build();
+        assert!(predict(&ctx).unwrap().is_none());
+    }
 
     #[test]
     fn test_extract_first_sig_from_esl() {

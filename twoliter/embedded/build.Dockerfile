@@ -225,6 +225,7 @@ ARG UEFI_SECURE_BOOT
 ARG XFS_DATA_PARTITION
 ARG EROFS_ROOT_PARTITION
 ARG IN_PLACE_UPDATES
+ARG SYSTEMD_BOOT_AB
 ARG HOST_CONTAINERS
 ARG FIPS
 ARG NVIDIA_DUAL_BRANCH
@@ -255,6 +256,7 @@ RUN \
    && echo -e -n "${XFS_DATA_PARTITION:+%bcond_without xfs_data_partition\n}" >> "${RPM_BCONDS}" \
    && echo -e -n "${EROFS_ROOT_PARTITION:+%bcond_without erofs_root_partition\n}" >> "${RPM_BCONDS}" \
    && echo -e -n "${IN_PLACE_UPDATES:+%bcond_without in_place_updates\n}" >> "${RPM_BCONDS}" \
+   && echo -e -n "${SYSTEMD_BOOT_AB:+%bcond_without systemd_boot_ab\n}" >> "${RPM_BCONDS}" \
    && echo -e -n "${HOST_CONTAINERS:+%bcond_without host_containers\n}" >> "${RPM_BCONDS}" \
    && echo -e -n "${EXTERNAL_KMOD_DEVELOPMENT:+%bcond_without external_kmod_development\n}" >> "${RPM_BCONDS}" \
    && echo -e -n "${ENCRYPTED_STORAGE:+%bcond_without encrypted_storage\n}" >> "${RPM_BCONDS}" \
@@ -373,6 +375,7 @@ ARG XFS_DATA_PARTITION
 ARG EROFS_ROOT_PARTITION
 ARG UEFI_SECURE_BOOT
 ARG IN_PLACE_UPDATES
+ARG SYSTEMD_BOOT_AB
 ARG ENCRYPTED_STORAGE
 ARG EPHEMERAL_ENCRYPTION_KEYS
 ARG STANDALONE_IMAGE
@@ -442,6 +445,7 @@ RUN --mount=target=/host \
         ${EROFS_ROOT_PARTITION:+--with-erofs-root-partition=yes} \
         ${UEFI_SECURE_BOOT:+--with-uefi-secure-boot=yes} \
         ${IN_PLACE_UPDATES:+--with-in-place-updates=yes} \
+        ${SYSTEMD_BOOT_AB:+--with-systemd-boot-ab=yes} \
         ${ENCRYPTED_STORAGE:+--with-encrypted-storage=yes} \
         ${EPHEMERAL_ENCRYPTION_KEYS:+--with-ephemeral-encryption-keys=yes} \
         ${EIF_KERNEL_FORMAT:+--eif-kernel-format=${EIF_KERNEL_FORMAT}} \
@@ -464,6 +468,7 @@ RUN --mount=target=/host \
         ${EROFS_ROOT_PARTITION:+--with-erofs-root-partition=yes} \
         ${UEFI_SECURE_BOOT:+--with-uefi-secure-boot=yes} \
         ${IN_PLACE_UPDATES:+--with-in-place-updates=yes} \
+        ${SYSTEMD_BOOT_AB:+--with-systemd-boot-ab=yes} \
         ${ENCRYPTED_STORAGE:+--with-encrypted-storage=yes} \
         ${EPHEMERAL_ENCRYPTION_KEYS:+--with-ephemeral-encryption-keys=yes} \
         $([ "${IMAGE_FORMAT}" = "uki" ] && echo "--with-uki-image=yes") \
@@ -488,6 +493,7 @@ ARG BYPASS_SOCKET
 ARG OUTPUT_SOCKET
 ARG BUILDER_UID
 ARG IN_PLACE_UPDATES
+ARG SYSTEMD_BOOT_AB
 ENV VARIANT=${VARIANT_NAME} VERSION_ID=${VERSION_ID} BUILD_ID=${BUILD_ID}
 WORKDIR /root
 
@@ -588,6 +594,7 @@ ARG DATA_IMAGE_PUBLISH_SIZE_GIB
 ARG UEFI_SECURE_BOOT
 ARG EROFS_ROOT_PARTITION
 ARG IN_PLACE_UPDATES
+ARG SYSTEMD_BOOT_AB
 ARG STANDALONE_IMAGE
 ARG GUEST_IMAGES=""
 ARG EIF_PCIE_FLAGS
@@ -648,6 +655,7 @@ RUN --mount=target=/host \
       ${EROFS_ROOT_PARTITION:+--with-erofs-root-partition=yes} \
       ${UEFI_SECURE_BOOT:+--with-uefi-secure-boot=yes} \
       ${IN_PLACE_UPDATES:+--with-in-place-updates=yes} \
+      ${SYSTEMD_BOOT_AB:+--with-systemd-boot-ab=yes} \
       $([ "${IMAGE_FORMAT}" = "uki" ] && echo "--with-uki-image=yes") \
       --with-standalone-image="${STANDALONE_IMAGE:-no}" \
       --guest-images="${GUEST_IMAGES}" ; \

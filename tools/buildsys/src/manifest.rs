@@ -1267,6 +1267,7 @@ pub enum ImageFeature {
     UefiSecureBoot,
     Fips,
     InPlaceUpdates,
+    SystemdBootAb,
     HostContainers,
     ExternalKmodDevelopment,
     EncryptedStorage,
@@ -1276,6 +1277,7 @@ pub enum ImageFeature {
 }
 
 const EXPERIMENTAL_IMAGE_FEATURES: &[&ImageFeature] = &[
+    &ImageFeature::SystemdBootAb,
     &ImageFeature::EncryptedStorage,
     &ImageFeature::StandaloneImage,
     &ImageFeature::EphemeralEncryptionKeys,
@@ -1380,6 +1382,32 @@ pub fn validate_image_features(
                  bootconfig.data from the LUKS-encrypted PRIVATE partition"
                     .to_string(),
             );
+        }
+    }
+
+    if features.contains(&ImageFeature::SystemdBootAb) {
+        for required in [ImageFeature::UefiSecureBoot, ImageFeature::InPlaceUpdates] {
+            if !features.contains(&required) {
+                conflict_messages.push(format!(
+                    "`systemd-boot-ab` requires {}",
+                    required.to_string().to_lowercase().replace('_', "-")
+                ));
+            }
+        }
+        for excluded in [
+            ImageFeature::EncryptedStorage,
+            ImageFeature::StandaloneImage,
+        ] {
+            if features.contains(&excluded) {
+                conflict_messages.push(format!(
+                    "`systemd-boot-ab` is incompatible with {}",
+                    excluded.to_string().to_lowercase().replace('_', "-")
+                ));
+            }
+        }
+        if is_uki || is_eif {
+            conflict_messages
+                .push("`systemd-boot-ab` requires a non-UKI disk image with GPT banks".to_string());
         }
     }
 
@@ -1536,6 +1564,7 @@ impl TryFrom<String> for ImageFeature {
             "uefi-secure-boot" => Ok(ImageFeature::UefiSecureBoot),
             "fips" => Ok(ImageFeature::Fips),
             "in-place-updates" => Ok(ImageFeature::InPlaceUpdates),
+            "systemd-boot-ab" => Ok(ImageFeature::SystemdBootAb),
             "host-containers" => Ok(ImageFeature::HostContainers),
             "external-kmod-development" => Ok(ImageFeature::ExternalKmodDevelopment),
             "encrypted-storage" => Ok(ImageFeature::EncryptedStorage),
@@ -1583,6 +1612,7 @@ impl fmt::Display for ImageFeature {
             ImageFeature::UefiSecureBoot => write!(f, "UEFI_SECURE_BOOT"),
             ImageFeature::Fips => write!(f, "FIPS"),
             ImageFeature::InPlaceUpdates => write!(f, "IN_PLACE_UPDATES"),
+            ImageFeature::SystemdBootAb => write!(f, "SYSTEMD_BOOT_AB"),
             ImageFeature::HostContainers => write!(f, "HOST_CONTAINERS"),
             ImageFeature::ExternalKmodDevelopment => write!(f, "EXTERNAL_KMOD_DEVELOPMENT"),
             ImageFeature::EncryptedStorage => write!(f, "ENCRYPTED_STORAGE"),
@@ -2450,6 +2480,42 @@ image-format = "eif"
     // UKI images have no B partition set, so in-place updates are
     // incompatible. Other feature combinations remain legal.
     // ---------------------------------------------------------------------
+
+    #[test]
+    fn systemd_boot_ab_requires_authenticated_two_bank_images() {
+        let layout = ImageLayout::default();
+        let valid = HashSet::from([
+            ImageFeature::SystemdBootAb,
+            ImageFeature::UefiSecureBoot,
+            ImageFeature::InPlaceUpdates,
+        ]);
+        for format in [ImageFormat::Raw, ImageFormat::Qcow2, ImageFormat::Vmdk] {
+            validate_image_features(&valid, &layout, Some(&format)).unwrap();
+        }
+        for format in [ImageFormat::Uki, ImageFormat::Eif] {
+            assert!(validate_image_features(&valid, &layout, Some(&format)).is_err());
+        }
+        for required in [ImageFeature::UefiSecureBoot, ImageFeature::InPlaceUpdates] {
+            let mut missing = valid.clone();
+            missing.remove(&required);
+            let error = validate_image_features(&missing, &layout, Some(&ImageFormat::Raw))
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("systemd-boot-ab"));
+            assert!(error.contains("requires"));
+        }
+        for excluded in [
+            ImageFeature::EncryptedStorage,
+            ImageFeature::StandaloneImage,
+        ] {
+            let mut conflicting = valid.clone();
+            conflicting.insert(excluded);
+            let error = validate_image_features(&conflicting, &layout, Some(&ImageFormat::Raw))
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("systemd-boot-ab"));
+        }
+    }
 
     #[test]
     fn uki_format_rejects_in_place_updates() {

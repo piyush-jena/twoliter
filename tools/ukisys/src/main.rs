@@ -32,6 +32,8 @@ struct Args {
 /// Subcommands for UKI repack section removal.
 #[derive(Subcommand)]
 enum Command {
+    /// Derive an unsigned PE stub from a signed Bottlerocket boot manifest.
+    DeriveManifestStub { manifest: PathBuf, stub: PathBuf },
     /// Derive an unsigned systemd-stub PE from a finished, signed UKI.
     DeriveStub {
         /// Path to the finished, signed UKI to strip.
@@ -46,11 +48,19 @@ enum Command {
 fn main() -> Result<()> {
     let args = Args::parse();
     match &args.command {
-        Command::DeriveStub { uki, stub } => derive_stub(uki, stub),
+        Command::DeriveStub { uki, stub } => derive_stub(uki, stub, StubKind::Uki),
+        Command::DeriveManifestStub { manifest, stub } => {
+            derive_stub(manifest, stub, StubKind::Manifest)
+        }
     }
 }
 
-fn derive_stub(uki_path: &Path, stub_path: &Path) -> Result<()> {
+enum StubKind {
+    Uki,
+    Manifest,
+}
+
+fn derive_stub(uki_path: &Path, stub_path: &Path, kind: StubKind) -> Result<()> {
     let mut image = PeImage::load(uki_path)
         .with_whatever_context(|_| format!("Failed to parse UKI '{}'", uki_path.display()))?;
 
@@ -58,8 +68,18 @@ fn derive_stub(uki_path: &Path, stub_path: &Path) -> Result<()> {
         .remove_signature()
         .with_whatever_context(|_| "Failed to remove signature".to_string())?;
 
+    // ukify appends SBAT after the manifest when the original addon stub
+    // has none. The repack caller carries that SBAT into the rebuilt image.
+    let trailing_sections: &[&str] = match kind {
+        StubKind::Uki => TRAILING_SECTIONS_TO_REMOVE,
+        StubKind::Manifest if image.sections.last().is_some_and(|s| s.name == ".sbat") => {
+            &[".brconf", ".sbat"]
+        }
+        StubKind::Manifest => &[".brconf"],
+    };
+
     image
-        .derive_stub_by_truncating_trailing_sections(TRAILING_SECTIONS_TO_REMOVE)
+        .derive_stub_by_truncating_trailing_sections(trailing_sections)
         .with_whatever_context(|_| "Failed to derive stub".to_string())?;
 
     image
@@ -68,7 +88,7 @@ fn derive_stub(uki_path: &Path, stub_path: &Path) -> Result<()> {
 
     eprintln!(
         "ukisys: stripped signature and trailing sections {:?} from '{}', wrote {} bytes to '{}'",
-        TRAILING_SECTIONS_TO_REMOVE,
+        trailing_sections,
         uki_path.display(),
         image.bytes.len(),
         stub_path.display(),

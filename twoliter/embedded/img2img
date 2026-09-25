@@ -21,6 +21,7 @@ ENCRYPTED_STORAGE="no"
 EPHEMERAL_ENCRYPTION_KEYS="no"
 STANDALONE_IMAGE="no"
 UKI_IMAGE="no"
+SYSTEMD_BOOT_AB="no"
 GUEST_IMAGES=""
 
 for opt in "$@"; do
@@ -40,6 +41,7 @@ for opt in "$@"; do
   --with-in-place-updates=*) IN_PLACE_UPDATES="${optarg}" ;;
   --with-standalone-image=*) STANDALONE_IMAGE="${optarg}" ;;
   --with-uki-image=*) UKI_IMAGE="${optarg}" ;;
+  --with-systemd-boot-ab=*) SYSTEMD_BOOT_AB="${optarg}" ;;
   --guest-images=*) GUEST_IMAGES="${optarg}" ;;
   *)
     echo "unexpected arg: ${opt}" >&2
@@ -304,6 +306,10 @@ mkfs_boot_uki() {
 # shellcheck source=imghelper
 . "${0%/*}/imghelper"
 
+# shellcheck source=ab-boot-helper
+. "${0%/*}/ab-boot-helper"
+ab_boot_validate
+
 # Provides `discover_eif_signer_args` for the guest-EIF resign loop.
 # shellcheck source=eif-sign-helper
 . "${0%/*}/eif-sign-helper"
@@ -465,8 +471,18 @@ if [[ "${UEFI_SECURE_BOOT}" == "yes" && "${UKI_IMAGE}" == "no" ]]; then
     count="${partsize["EFI-A"]}" bs=1M skip="${partoff["EFI-A"]}"
   mkdir -p "${EFI_MOUNT}/EFI/BOOT"
   mcopy -i "${EFI_IMAGE}" -sv ::/EFI/BOOT "${EFI_MOUNT}/EFI/"
+  if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+    mcopy -i "${EFI_IMAGE}" -sv ::/EFI/systemd "${EFI_MOUNT}/EFI/"
+  fi
   # Remove the original signing certificates to avoid confusion.
   rm -f "${EFI_MOUNT}/EFI/BOOT/db.cer" "${EFI_MOUNT}/EFI/BOOT/db.crt"
+fi
+
+if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+  [[ -f "${BOOT_MOUNT}/boot-manifest.efi" ]] || { echo 'missing boot manifest for systemd-boot-ab repack' >&2; exit 1; }
+elif [[ -f "${BOOT_MOUNT}/boot-manifest.efi" ]]; then
+  echo 'systemd-boot-ab image requires --with-systemd-boot-ab=yes for repack' >&2
+  exit 1
 fi
 
 ###############################################################################
@@ -520,6 +536,19 @@ if [[ -n "${GUEST_IMAGES}" ]]; then
       done
     done <<<"${GUEST_IMAGES}"
   fi
+fi
+
+# The staged EFI image is part of the authenticated root. Re-sign it before
+# calculating root verity; later only the kernel and manifest are replaced.
+if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+  sbsetup_signing_profile
+  ab_boot_sign_efi "${EFI_MOUNT}" "${efi_arch}"
+  mcopy -i "${EFI_IMAGE}" -ov "${EFI_MOUNT}/EFI/BOOT"/*.efi ::/EFI/BOOT
+  mcopy -i "${EFI_IMAGE}" -ov "${EFI_MOUNT}/EFI/systemd/drivers/ext4${efi_arch}.efi" ::/EFI/systemd/drivers
+  provide_certs "${EFI_IMAGE}"
+  write_partition "${EFI_IMAGE}" "${OS_IMAGE}" "${partoff["EFI-A"]}"
+  install -D -p -m 0644 "${EFI_IMAGE}" \
+    "${ROOT_MOUNT}/${ARCH}-bottlerocket-linux-gnu/sys-root/usr/share/bottlerocket/bootloader/efi.img"
 fi
 
 ###############################################################################
@@ -581,7 +610,7 @@ write_partition "${VERITY_IMAGE}" "${OS_IMAGE}" "${partoff["HASH-A"]}"
 ###############################################################################
 # Section 5: maybe secure boot
 
-if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
+if [[ "${UEFI_SECURE_BOOT}" == "yes" && "${SYSTEMD_BOOT_AB}" == "no" ]]; then
   # Do the setup required for `pesign` and `gpg` signing and
   # verification to "just work", regardless of which type of
   # signing profile we have.
@@ -589,6 +618,7 @@ if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
 fi
 
 if [[ "${UKI_IMAGE}" == "no" && "${UEFI_SECURE_BOOT}" == "yes" ]]; then
+  if [[ "${SYSTEMD_BOOT_AB}" == "no" ]]; then
   pushd "${EFI_MOUNT}/EFI/BOOT" >/dev/null
   # The shim was renamed to the platform-defined default boot path,
   # `boot*.efi`, by `rpm2img`, regardless of which bootloader it
@@ -616,6 +646,8 @@ if [[ "${UKI_IMAGE}" == "no" && "${UEFI_SECURE_BOOT}" == "yes" ]]; then
   # Write the EFI image back to the OS image.
   check_image_size "${EFI_IMAGE}" "${partsize["EFI-A"]}"
   write_partition "${EFI_IMAGE}" "${OS_IMAGE}" "${partoff["EFI-A"]}"
+
+  fi
 
   # Resign the kernel and write to boot image. UKI images are handled in
   # section 6 instead: there the kernel is a payload section of the UKI, which
@@ -654,6 +686,11 @@ else
 
   # Replace grub.cfg on the boot image.
   debugfs_replace "${BOOT_IMAGE}" "${GRUB_CONFIG}" /grub/grub.cfg
+
+  if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+    ab_boot_repack_manifest "${BOOT_MOUNT}/boot-manifest.efi" "${BOOT_MOUNT}/vmlinuz" "${DM_VERITY_ROOT[*]}"
+    debugfs_replace "${BOOT_IMAGE}" "${BOOT_MOUNT}/boot-manifest.efi" /boot-manifest.efi
+  fi
 
   # Sign the grub.cfg and replace the signature on the boot image, if needed.
   if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then

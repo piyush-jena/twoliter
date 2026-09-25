@@ -14,6 +14,12 @@ Provides: %{_cross_os}variant-runtime(%{_cross_variant_runtime})
 Provides: %{_cross_os}variant-family(%{_cross_variant_family})
 Provides: %{_cross_os}variant-flavor(%{_cross_variant_flavor})
 
+%if %{with systemd_boot_ab}
+Provides: %{_cross_os}image-feature(systemd-boot-ab)
+%else
+Provides: %{_cross_os}image-feature(no-systemd-boot-ab)
+%endif
+
 %if %{with in_place_updates}
 Provides: %{_cross_os}image-feature(in-place-updates)
 %else

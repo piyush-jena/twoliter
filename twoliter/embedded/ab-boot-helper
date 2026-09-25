@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Helpers shared by image construction and repacking of GPT systemd-boot images.
+
+ab_boot_validate() {
+  [[ "${SYSTEMD_BOOT_AB:-no}" == "yes" ]] || return 0
+  if [[ "${UEFI_SECURE_BOOT:-no}" != "yes" || "${IN_PLACE_UPDATES:-no}" != "yes" ||
+        "${UKI_IMAGE:-no}" == "yes" || "${STANDALONE_IMAGE:-no}" == "yes" ||
+        "${ENCRYPTED_STORAGE:-no}" == "yes" ]]; then
+    echo 'systemd-boot-ab requires Secure Boot, in-place updates, and unencrypted non-UKI GPT partitions' >&2
+    return 1
+  fi
+}
+
+ab_boot_verity() {
+  local table="${1:?}"
+  table="${table//\$boot_uuid\/PARTNROFF=1/@ROOT@}"
+  table="${table//\$boot_uuid\/PARTNROFF=2/@HASH@}"
+  printf '%s' "${table}"
+}
+
+# The signature covers the raw signed kernel digest and exact fixed template.
+# UUIDs are resolved by the loader from the selected bank on its own disk.
+ab_boot_write_manifest() (
+  set -euo pipefail
+  local stub="${1:?}" kernel="${2:?}" template="${3:?}" output="${4:?}" stage
+  stage="$(mktemp -d)"
+  trap 'rm -rf -- "${stage}"' EXIT
+  python3 - "${kernel}" "${template}" "${stage}/manifest.data" <<'PY'
+from pathlib import Path
+import hashlib
+import sys
+kernel, template, output = sys.argv[1:]
+if (any(ord(c) < 32 or ord(c) > 126 for c in template)
+        or template.count('@ROOT@') != 1 or template.count('@HASH@') != 1
+        or '@' in template.replace('@ROOT@', '').replace('@HASH@', '')):
+    raise SystemExit('invalid authenticated boot command-line template')
+data = b'BRBOOT1\0' + hashlib.sha256(Path(kernel).read_bytes()).digest() + template.encode('ascii') + b'\0'
+if len(data) > 8192 or len(template) + 60 >= 2048:
+    raise SystemExit('authenticated boot command line exceeds kernel size limit')
+Path(output).write_bytes(data)
+PY
+  local -a sbat_args=()
+  if [[ -n "${5:-}" ]]; then
+    sbat_args=(--sbat "@${5}")
+  fi
+  ukify build --stub "${stub}" --section ".brconf:@${stage}/manifest.data" "${sbat_args[@]}" --output "${output}"
+  ukify inspect "${output}" --section ".brconf:binary@${stage}/extracted.data"
+  cmp "${stage}/manifest.data" "${stage}/extracted.data"
+)
+
+ab_boot_repack_manifest() (
+  set -euo pipefail
+  local manifest="${1:?}" kernel="${2:?}" table="${3:?}" stage template
+  stage="$(mktemp -d)"
+  trap 'rm -rf -- "${stage}"' EXIT
+  ukify inspect "${manifest}" --section ".brconf:binary@${stage}/old.data"
+  ukify inspect "${manifest}" --section ".sbat:binary@${stage}/sbat"
+  [[ -s "${stage}/sbat" ]] || { echo "existing boot manifest has no SBAT section" >&2; exit 1; }
+  template="$(python3 - "${stage}/old.data" "$(ab_boot_verity "${table}")" <<'PY'
+from pathlib import Path
+import re
+import sys
+old = Path(sys.argv[1]).read_bytes()
+if not 42 <= len(old) <= 8192 or old[:8] != b'BRBOOT1\0' or old[-1:] != b'\0':
+    raise SystemExit('invalid existing boot manifest')
+template = old[40:-1].decode('ascii')
+pattern = r'dm-mod\.create="[^"\n]+"'
+if len(re.findall(pattern, template)) != 1:
+    raise SystemExit('expected exactly one fixed dm-verity table')
+print(re.sub(pattern, lambda _: f'dm-mod.create="{sys.argv[2]}"', template), end='')
+PY
+)"
+  "${BASH_SOURCE[0]%/*}/ukisys" derive-manifest-stub "${manifest}" "${stage}/addon.efi.stub"
+  ab_boot_write_manifest "${stage}/addon.efi.stub" "${kernel}" "${template}" "${stage}/manifest.efi" "${stage}/sbat"
+  ukify inspect "${stage}/manifest.efi" --section ".sbat:binary@${stage}/new-sbat"
+  cmp "${stage}/sbat" "${stage}/new-sbat"
+  sign_vmlinuz "${stage}/manifest.efi"
+  mv "${stage}/manifest.efi" "${manifest}"
+)
+
+ab_boot_sign_efi() {
+  local efi_mount="${1:?}" arch="${2:?}"
+  sign_shim "${efi_mount}/EFI/BOOT/boot${arch}.efi"
+  sign_mokm "${efi_mount}/EFI/BOOT/mm${arch}.efi"
+  sign_vmlinuz "${efi_mount}/EFI/BOOT/systemd-boot${arch}.efi"
+  sign_vmlinuz "${efi_mount}/EFI/systemd/drivers/ext4${arch}.efi"
+}
+
+ab_boot_copy_driver() {
+  local image="${1:?}" efi_mount="${2:?}" arch="${3:?}"
+  mmd -i "${image}" ::/EFI/systemd ::/EFI/systemd/drivers
+  mcopy -i "${image}" "${efi_mount}/EFI/systemd/drivers/ext4${arch}.efi" ::/EFI/systemd/drivers
+}

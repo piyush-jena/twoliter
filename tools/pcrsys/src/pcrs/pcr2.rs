@@ -9,6 +9,11 @@ use crate::predict::{extend_pcr_separator, PcrContext, PcrIndex, PcrRecord, PCR_
 
 /// Predict PCR 2 value.
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
+    // Driver measurements depend on which firmware or shim verification path accepts them.
+    if ctx.systemd_boot_ab {
+        return Ok(None);
+    }
+
     match ctx.platform {
         Platform::Aws | Platform::Vmware => Ok(Some((
             PcrIndex::Pcr2,
@@ -23,6 +28,18 @@ mod tests {
     use super::*;
     use crate::predict::test_support::{MockCtx, SEPARATOR_HASH};
     use test_case::test_case;
+
+    #[test]
+    fn systemd_boot_ab_does_not_emit_a_legacy_prediction() {
+        let m = MockCtx::dual_bank();
+        let ctx = PcrContext::builder()
+            .platform(crate::platform::Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .systemd_boot_ab(true)
+            .build();
+        assert!(predict(&ctx).unwrap().is_none());
+    }
 
     #[test_case(Platform::Aws, Some(SEPARATOR_HASH))]
     #[test_case(Platform::Vmware, Some(SEPARATOR_HASH))]

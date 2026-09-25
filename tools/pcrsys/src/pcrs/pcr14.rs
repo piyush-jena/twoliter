@@ -10,6 +10,11 @@ use sha2::{Digest, Sha256};
 ///
 /// PCR 14 = extend(MokList ESL) -> extend(MokListX ESL) -> extend(MokListTrusted)
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
+    // Legacy bank handoff can add another shim MOK measurement sequence.
+    if ctx.systemd_boot_ab {
+        return Ok(None);
+    }
+
     let vendor_cert = extract_vendor_cert(ctx.shim)?;
 
     // MokList: X509 ESL containing vendor certificate
@@ -35,6 +40,18 @@ mod tests {
     use super::*;
     use crate::platform::Platform;
     use crate::predict::test_support::{build_test_shim, MockCtx};
+
+    #[test]
+    fn systemd_boot_ab_does_not_emit_a_legacy_prediction() {
+        let m = MockCtx::dual_bank();
+        let ctx = PcrContext::builder()
+            .platform(crate::platform::Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .systemd_boot_ab(true)
+            .build();
+        assert!(predict(&ctx).unwrap().is_none());
+    }
 
     #[test]
     fn test_predict() {

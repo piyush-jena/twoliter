@@ -34,6 +34,7 @@ fn main() {
     paths.copy_file("guest-images-helper");
     paths.copy_file("img2img");
     paths.copy_file("imghelper");
+    paths.copy_file("ab-boot-helper");
     paths.copy_file("partyplanner");
     paths.copy_file("rpm2img");
     paths.copy_file("rpm2kit");

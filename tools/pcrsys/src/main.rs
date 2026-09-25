@@ -173,7 +173,15 @@ fn predict_pcrs(
     let gpt_bin = gpt::extract_primary_gpt(disk)?;
     let partitions = gpt::find_partitions(disk)?;
     let shim = diskfs::extract_shim(disk, &partitions)?;
-    let grub = diskfs::extract_grub(disk, &partitions)?;
+    let systemd_boot_ab = diskfs::has_systemd_boot_ab(disk, &partitions)?;
+    if systemd_boot_ab && partitions.boot_b.is_none() {
+        snafu::whatever!("GPT systemd boot prediction requires an A/B disk layout");
+    }
+    let grub = if systemd_boot_ab {
+        Vec::new()
+    } else {
+        diskfs::extract_grub(disk, &partitions)?
+    };
     let vmlinuz = diskfs::extract_vmlinuz(disk, &partitions)?;
     let grub_cfg = diskfs::extract_grub_cfg(disk, &partitions)?;
     let bootconfig = diskfs::extract_bootconfig(disk, &partitions)?;
@@ -181,6 +189,7 @@ fn predict_pcrs(
 
     let ctx = PcrContext::builder()
         .platform(platform)
+        .systemd_boot_ab(systemd_boot_ab)
         .efi_vars(efi_vars)
         .partitions(&partitions)
         .gpt_bin(&gpt_bin)

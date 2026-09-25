@@ -51,6 +51,8 @@ impl Serialize for PcrIndex {
 #[derive(bon::Builder)]
 pub struct PcrContext<'a> {
     pub platform: Platform,
+    #[builder(default)]
+    pub systemd_boot_ab: bool,
     pub efi_vars: &'a EfiVars,
     pub partitions: &'a PartitionLayout,
     #[builder(default)]

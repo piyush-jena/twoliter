@@ -14,6 +14,7 @@ ENCRYPTED_STORAGE="no"
 EPHEMERAL_ENCRYPTION_KEYS="no"
 STANDALONE_IMAGE="no"
 UKI_IMAGE="no"
+SYSTEMD_BOOT_AB="no"
 GUEST_IMAGES=""
 
 for opt in "$@"; do
@@ -37,6 +38,7 @@ for opt in "$@"; do
   --with-ephemeral-encryption-keys=*) EPHEMERAL_ENCRYPTION_KEYS="${optarg}" ;;
   --with-standalone-image=*) STANDALONE_IMAGE="${optarg}" ;;
   --with-uki-image=*) UKI_IMAGE="${optarg}" ;;
+  --with-systemd-boot-ab=*) SYSTEMD_BOOT_AB="${optarg}" ;;
   --guest-images=*) GUEST_IMAGES="${optarg}" ;;
   --sbom-package-dir=*) SBOM_PACKAGE_DIR="${optarg}" ;;
   *)
@@ -53,6 +55,10 @@ done
 # Import the image helper functions.
 # shellcheck source=imghelper
 . "${0%/*}/imghelper"
+
+# shellcheck source=ab-boot-helper
+. "${0%/*}/ab-boot-helper"
+ab_boot_validate
 
 # Import the guest-images copy helper.
 # shellcheck source=guest-images-helper
@@ -424,7 +430,7 @@ fi
 # Clean up rpmdb.
 rm -rf "${ROOT_MOUNT}"/var/lib
 
-if [[ "${ARCH}" == "x86_64" && "${UKI_IMAGE}" == "no" ]]; then
+if [[ "${ARCH}" == "x86_64" && "${UKI_IMAGE}" == "no" && "${SYSTEMD_BOOT_AB}" == "no" ]]; then
   # MBR and BIOS-BOOT
   echo "(hd0) ${OS_IMAGE}" >"${ROOT_MOUNT}/boot/grub/device.map"
   grub-bios-setup \
@@ -462,6 +468,10 @@ if [[ "${UKI_IMAGE}" == "no" ]]; then
   pushd "${EFI_MOUNT}/EFI/BOOT" >/dev/null
 
   shim="boot${efi_arch}.efi"
+  if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+    mv "shim-systemd-boot${efi_arch}.efi" "${shim}"
+    mv "systemd-boot-br${efi_arch}.efi" "systemd-boot${efi_arch}.efi"
+  fi
   if [[ ! -e "${shim}" ]]; then
     echo "no shim '${shim}' on the EFI system partition" >&2
     exit 1
@@ -470,16 +480,19 @@ if [[ "${UKI_IMAGE}" == "no" ]]; then
   mokms=(mm*.efi)
   mokm="${mokms[0]}"
 
-  # GRUB mode: shim chain-loads grub.
-  grubs=(grub*.efi)
-  grub="${grubs[0]}"
-  if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
-    sign_shim "${shim}"
-    sign_mokm "${mokm}"
-    sign_grub "${grub}"
+  if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+    ab_boot_sign_efi "${EFI_MOUNT}" "${efi_arch}"
   else
-    zero_shim "${shim}"
-    unembed_grub "${grub}"
+    grubs=(grub*.efi)
+    grub="${grubs[0]}"
+    if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
+      sign_shim "${shim}"
+      sign_mokm "${mokm}"
+      sign_grub "${grub}"
+    else
+      zero_shim "${shim}"
+      unembed_grub "${grub}"
+    fi
   fi
   popd >/dev/null
 fi
@@ -497,6 +510,13 @@ if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
   # Make the signing certificate available on the EFI system partition so it
   # can be imported through the firmware setup UI on bare metal systems.
   provide_certs "${EFI_IMAGE}"
+fi
+if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+  ab_boot_copy_driver "${EFI_IMAGE}" "${EFI_MOUNT}" "${efi_arch}"
+  # This payload is protected by root verity. Staging it before root image
+  # creation avoids a circular dependency on the later boot manifest.
+  install -D -p -m 0644 "${EFI_IMAGE}" \
+    "${ROOT_MOUNT}/${ARCH}-bottlerocket-linux-gnu/sys-root/usr/share/bottlerocket/bootloader/efi.img"
 fi
 dd if="${EFI_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff["EFI-A"]}"
 
@@ -571,6 +591,12 @@ if [[ "${STANDALONE_IMAGE}" == "yes" ]]; then
   printf "%s\n" "STANDALONE_IMAGE=true" >>"${ROOT_MOUNT}/${SYS_ROOT}/usr/share/bottlerocket/image-features.env"
 else
   printf "%s\n" "STANDALONE_IMAGE=false" >>"${ROOT_MOUNT}/${SYS_ROOT}/usr/share/bottlerocket/image-features.env"
+fi
+
+if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+  printf '%s\n' 'SYSTEMD_BOOT_AB=true' >>"${ROOT_MOUNT}/${SYS_ROOT}/usr/share/bottlerocket/image-features.env"
+else
+  printf '%s\n' 'SYSTEMD_BOOT_AB=false' >>"${ROOT_MOUNT}/${SYS_ROOT}/usr/share/bottlerocket/image-features.env"
 fi
 
 # Set the image format flags. `image-format` is a separate manifest field from
@@ -746,6 +772,15 @@ EOF
   if [[ "${UEFI_SECURE_BOOT}" == "yes" ]]; then
     sign_grubcfg "${BOOT_MOUNT}/grub/grub.cfg"
   fi
+fi
+
+if [[ "${SYSTEMD_BOOT_AB}" == "yes" ]]; then
+  ab_verity="$(ab_boot_verity "${DM_VERITY_ROOT[*]}")"
+  ab_cmdline="${KERNEL_PARAMETERS} bootconfig root=/dev/dm-0 rootwait ro raid=noautodetect random.trust_cpu=on selinux=1 enforcing=1 dm-mod.create=\"${ab_verity}\" -- systemd.log_target=journal-or-kmsg systemd.log_color=0 systemd.show_status=true"
+  ab_boot_write_manifest \
+    "${ROOT_MOUNT}/${SYS_ROOT}/usr/lib/systemd/boot/efi/addon${efi_arch}.efi.stub" \
+    "${BOOT_MOUNT}/vmlinuz" "${ab_cmdline}" "${BOOT_MOUNT}/boot-manifest.efi"
+  sign_vmlinuz "${BOOT_MOUNT}/boot-manifest.efi"
 fi
 
 # Combine any bootconfig snippets in /boot for later use, then clean up.

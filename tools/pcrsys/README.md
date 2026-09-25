@@ -88,3 +88,9 @@ JSON file containing Secure Boot variables:
 GPT-partitioned disk image containing:
 - EFI System Partition (FAT) with `/EFI/BOOT/boot{aa64,x64}.efi` (shim) and `grub{aa64,x64}.efi`
 - Boot partition (ext4) with `/vmlinuz`, `/grub.cfg`, and `/bootconfig.data`
+
+## GPT systemd-boot images
+
+The dedicated `systemd-boot-ab` loader is detected on EFI-A. It requires an A/B disk layout. Signed GRUB configuration remains in the intermediate image for legacy loader recovery, but does not select the PCR prediction model.
+
+PCRs 4, 5 and 9 remain omitted for A/B images. This loader also omits PCRs 2, 7, 12 and 14: driver measurements depend on the firmware/shim verification path, load options depend on the selected bank, and delegation to a retained legacy shim can add policy measurements. These registers are not reported as zero or as legacy GRUB values. Platform-specific predictions for the remaining registers retain their existing behavior. Qualify the actual firmware and installed transition before using predictions for attestation policy.
