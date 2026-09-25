@@ -85,6 +85,17 @@ pub struct Images {
     pub boot: Option<String>,
     pub root: String,
     pub hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uki: Option<Uki>,
+}
+
+/// Versioned systemd-boot update payload. Both UKIs contain the same root hash,
+/// but their signed initrds select different banks; the updater never re-signs.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Uki {
+    pub layout_version: u32,
+    pub images: [String; 2],
+    pub hmacs: [String; 2],
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -466,6 +477,7 @@ mod tests {
             max_version: Version::parse("1.1.1").unwrap(),
             waves: BTreeMap::new(),
             images: Images {
+                uki: None,
                 boot: Some(String::from("boot")),
                 root: String::from("root"),
                 hash: String::from("hash"),
@@ -637,6 +649,7 @@ mod tests {
             max_version: Version::parse("1.1.0").unwrap(),
             waves: BTreeMap::new(),
             images: Images {
+                uki: None,
                 boot: Some(String::from("boot")),
                 root: String::from("root"),
                 hash: String::from("hash"),
@@ -700,6 +713,7 @@ mod tests {
         // from the serialized manifest (so consumers that predate the field
         // don't see an unexpected key) and round-trips back to `None`.
         let images = Images {
+            uki: None,
             boot: None,
             root: "root".into(),
             hash: "hash".into(),
@@ -720,6 +734,7 @@ mod tests {
         // Non-UKI variants keep the `boot` image; ensure it survives a
         // serialize/deserialize round-trip.
         let images = Images {
+            uki: None,
             boot: Some("boot".into()),
             root: "root".into(),
             hash: "hash".into(),
@@ -728,5 +743,25 @@ mod tests {
         assert!(json.contains("boot"));
         let parsed: Images = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.boot.as_deref(), Some("boot"));
+    }
+}
+
+#[cfg(test)]
+mod uki_tests {
+    use super::Images;
+
+    #[test]
+    fn uki_payload_roundtrips_without_grub_boot_target() {
+        let json = r#"{"root":"root.lz4","hash":"hash.lz4","uki":{"layout_version":1,"images":["kernel-6.12-A.lz4","kernel-6.12-B.lz4"],"hmacs":["A.hmac.lz4","B.hmac.lz4"]}}"#;
+        let images: Images = serde_json::from_str(json).unwrap();
+        let encoded = serde_json::to_string(&images).unwrap();
+        let decoded: Images = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded.uki.unwrap().images[1], "kernel-6.12-B.lz4");
+    }
+
+    #[test]
+    fn uki_payload_requires_both_slot_targets() {
+        let json = r#"{"root":"root.lz4","hash":"hash.lz4","uki":{"layout_version":1,"images":["A.lz4"],"hmacs":["A.hmac.lz4","B.hmac.lz4"]}}"#;
+        assert!(serde_json::from_str::<Images>(json).is_err());
     }
 }

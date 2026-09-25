@@ -672,6 +672,22 @@ impl ManifestInfo {
 
     /// Convenience method to return the enabled image features for this variant.
     pub fn image_features(&self) -> Option<HashSet<ImageFeature>> {
+        let features = self.resolved_image_features()?;
+        for experiment in EXPERIMENTAL_IMAGE_FEATURES {
+            if features.contains(experiment) {
+                println!("cargo:warning=Image feature {experiment} is experimental; use at your own risk!");
+            }
+        }
+        for deprecated in DEPRECATED_IMAGE_FEATURES {
+            if features.contains(deprecated) {
+                println!("cargo:warning=Image feature {deprecated} is deprecated and will be removed in a future release!");
+            }
+        }
+        Some(features)
+    }
+
+    /// Resolve feature defaults without emitting Cargo build-script directives.
+    pub fn resolved_image_features(&self) -> Option<HashSet<ImageFeature>> {
         let variant = self.build_variant()?;
         // If the user explicitly enabled `standalone-image`, drop the silent
         // defaults for `in-place-updates` and `host-containers` since they
@@ -711,16 +727,6 @@ impl ManifestInfo {
                 } else {
                     features.remove(feature);
                 }
-            }
-        }
-        for experiment in EXPERIMENTAL_IMAGE_FEATURES {
-            if features.contains(experiment) {
-                println!("cargo:warning=Image feature {experiment} is experimental; use at your own risk!");
-            }
-        }
-        for deprecated in DEPRECATED_IMAGE_FEATURES {
-            if features.contains(deprecated) {
-                println!("cargo:warning=Image feature {deprecated} is deprecated and will be removed in a future release!");
             }
         }
         Some(features)
@@ -1383,13 +1389,14 @@ pub fn validate_image_features(
         }
     }
 
-    // UKI images have no B partition set, so in-place updates are impossible.
-    if is_uki && features.contains(&ImageFeature::InPlaceUpdates) {
-        conflict_messages.push(
-            "`in-place-updates`: in-place updates require two banks of OS \
-             partitions (A/B); a UKI image has no B partition set"
-                .to_string(),
-        );
+    // Persistent UKI storage needs a separately reviewed PCR11 policy. The
+    // update-capable Mantle layout retains ephemeral storage and Secure Boot.
+    if is_uki
+        && features.contains(&ImageFeature::InPlaceUpdates)
+        && (!features.contains(&ImageFeature::UefiSecureBoot)
+            || !features.contains(&ImageFeature::EphemeralEncryptionKeys))
+    {
+        conflict_messages.push("`in-place-updates`: UKI updates require `uefi-secure-boot` and `ephemeral-encryption-keys`".to_string());
     }
 
     // Without `standalone-image` enabled *and* a non-EIF format, the
@@ -2447,14 +2454,12 @@ image-format = "eif"
     // ---------------------------------------------------------------------
     // `image-format = "uki"` validation tests.
     //
-    // UKI images have no B partition set, so in-place updates are
-    // incompatible. Other feature combinations remain legal.
+    // UKI updates require the signed A/B layout and ephemeral storage contract.
     // ---------------------------------------------------------------------
 
     #[test]
-    fn uki_format_rejects_in_place_updates() {
-        // `in-place-updates` requires two banks of OS partitions (A/B); a
-        // UKI image has no B partition set.
+    fn uki_updates_require_secure_boot_and_ephemeral_storage() {
+        // The A/B builder must not silently drop signature or storage policy.
         let layout = ImageLayout::default();
         let features = HashSet::from([ImageFeature::InPlaceUpdates]);
         let err = validate_image_features(&features, &layout, Some(&ImageFormat::Uki))
@@ -2468,6 +2473,18 @@ image-format = "eif"
             msg.contains("in-place-updates"),
             "missing feature name: {msg}"
         );
+    }
+
+    #[test]
+    fn uki_updates_with_secure_boot_and_ephemeral_storage_pass() {
+        let features = HashSet::from([
+            ImageFeature::InPlaceUpdates,
+            ImageFeature::UefiSecureBoot,
+            ImageFeature::EncryptedStorage,
+            ImageFeature::EphemeralEncryptionKeys,
+        ]);
+        validate_image_features(&features, &ImageLayout::default(), Some(&ImageFormat::Uki))
+            .expect("secured UKI A/B layout should validate");
     }
 
     #[test]

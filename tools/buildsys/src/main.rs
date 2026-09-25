@@ -126,6 +126,18 @@ fn run(args: Buildsys) -> Result<()> {
         // A read-only query that must not emit cargo build-script directives
         // (they would pollute the value printed to stdout).
         Command::VariantImageFormat(args) => variant_image_format(*args),
+        Command::VariantInPlaceUpdates(args) => {
+            let manifest =
+                ManifestInfo::new(&args.variant_manifest).context(error::ManifestParseSnafu)?;
+            println!(
+                "{}",
+                manifest
+                    .resolved_image_features()
+                    .unwrap_or_default()
+                    .contains(&ImageFeature::InPlaceUpdates)
+            );
+            Ok(())
+        }
         command => {
             args::rerun_for_envs(command.build_type());
             match command {
@@ -133,7 +145,9 @@ fn run(args: Buildsys) -> Result<()> {
                 Command::BuildKit(args) => build_kit(*args),
                 Command::BuildVariant(args) => build_variant(*args),
                 Command::RepackVariant(args) => repack_variant(*args),
-                Command::VariantImageFormat(_) => unreachable!("handled above"),
+                Command::VariantImageFormat(_) | Command::VariantInPlaceUpdates(_) => {
+                    unreachable!("handled above")
+                }
             }
         }
     }

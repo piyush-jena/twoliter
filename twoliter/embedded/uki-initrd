@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Build a minimal target-architecture initrd tree without executing target ELF.
+
+Only the resolver, dmsetup, switch_root and their ELF dependencies are included.
+The caller packs and signs this tree as the UKI .initrd section.
+"""
+import argparse
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+
+def resolve(root, name):
+    """Resolve links within the image root, including absolute target links."""
+    parts = list(Path(name).parts)
+    if parts and parts[0] == "/":
+        parts.pop(0)
+    resolved = []
+    links = 0
+    while parts:
+        part = parts.pop(0)
+        if part == ".":
+            continue
+        if part == "..":
+            if not resolved:
+                raise ValueError("path escapes image root")
+            resolved.pop()
+            continue
+        candidate = root.joinpath(*resolved, part)
+        if candidate.is_symlink():
+            links += 1
+            if links > 40:
+                raise ValueError("too many ELF dependency symlinks")
+            target = Path(os.readlink(candidate))
+            if target.is_absolute():
+                resolved = []
+                parts = list(target.parts[1:]) + parts
+            else:
+                parts = list(target.parts) + parts
+        else:
+            resolved.append(part)
+    return root.joinpath(*resolved)
+
+
+def build(root, destination):
+    # Match Bottlerocket's merged /usr layout so the target dynamic loader
+    # resolves libraries identically to the root image, on both architectures.
+    (destination / "usr/lib").mkdir(parents=True, exist_ok=True)
+    for name, target in (("lib", "usr/lib"), ("lib64", "usr/lib"), ("usr/lib64", "lib")):
+        (destination / name).symlink_to(target)
+    queue = ["/usr/bin/uki-init", "/usr/sbin/dmsetup", "/usr/sbin/switch_root"]
+    copied = set()
+    while queue:
+        name = queue.pop()
+        if name in copied:
+            continue
+        source = resolve(root, name)
+        if not source.is_file():
+            raise ValueError(f"missing initrd input {name}")
+        target = destination / name.lstrip("/")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copied.add(name)
+        headers = subprocess.check_output(["readelf", "-l", "-d", str(source)], text=True)
+        for interpreter in re.findall(r"Requesting program interpreter: ([^]]+)", headers):
+            queue.append(interpreter)
+        for library in re.findall(r"\(NEEDED\).*?\[([^]]+)\]", headers):
+            candidates = [
+                f"{directory}/{library}"
+                for directory in ("/usr/lib64", "/usr/lib", "/lib64", "/lib")
+                if resolve(root, f"{directory}/{library}").is_file()
+            ]
+            if not candidates:
+                raise ValueError(f"missing dependency {library} of {name}")
+            # Install in the target's standard loader search path.
+            queue.append(candidates[0])
+    (destination / "init").symlink_to("usr/bin/uki-init")
+    for name in ("etc", "dev", "proc", "sys", "sysroot", "run"):
+        (destination / name).mkdir(exist_ok=True)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=Path)
+    parser.add_argument("destination", type=Path)
+    args = parser.parse_args()
+    build(args.root, args.destination)

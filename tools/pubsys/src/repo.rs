@@ -62,6 +62,14 @@ pub(crate) struct RepoArgs {
     #[arg(long)]
     /// Path to the image containing the boot partition.
     boot_image: Option<PathBuf>,
+    #[arg(long, requires_all = ["uki_b", "uki_hmac_a", "uki_hmac_b"], conflicts_with = "boot_image")]
+    uki_a: Option<PathBuf>,
+    #[arg(long, requires = "uki_a")]
+    uki_b: Option<PathBuf>,
+    #[arg(long, requires = "uki_a")]
+    uki_hmac_a: Option<PathBuf>,
+    #[arg(long, requires = "uki_a")]
+    uki_hmac_b: Option<PathBuf>,
     #[arg(long)]
     /// Path to the image containing the root partition
     root_image: PathBuf,
@@ -124,7 +132,21 @@ fn update_manifest(repo_args: &RepoArgs, manifest: &mut Manifest) -> Result<()> 
             .to_string())
     };
 
+    let uki = match (
+        &repo_args.uki_a,
+        &repo_args.uki_b,
+        &repo_args.uki_hmac_a,
+        &repo_args.uki_hmac_b,
+    ) {
+        (Some(a), Some(b), Some(ha), Some(hb)) => Some(update_metadata::Uki {
+            layout_version: 1,
+            images: [filename(a)?, filename(b)?],
+            hmacs: [filename(ha)?, filename(hb)?],
+        }),
+        _ => None, // clap enforces the complete group
+    };
     let images = Images {
+        uki,
         // Omit `boot` from the manifest when no boot image was provided
         boot: repo_args.boot_image.as_ref().map(&filename).transpose()?,
         root: filename(&repo_args.root_image)?,
@@ -539,6 +561,16 @@ pub(crate) async fn run(args: &Args, repo_args: &RepoArgs) -> Result<()> {
     if let Some(boot_image) = &repo_args.boot_image {
         image_targets.push(boot_image);
     }
+    image_targets.extend(
+        [
+            &repo_args.uki_a,
+            &repo_args.uki_b,
+            &repo_args.uki_hmac_a,
+            &repo_args.uki_hmac_b,
+        ]
+        .into_iter()
+        .flatten(),
+    );
     let link_targets = repo_args.link_targets.iter().chain(image_targets);
     let all_targets = copy_targets.iter().chain(link_targets.clone());
 

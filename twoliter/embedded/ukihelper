@@ -1,0 +1,66 @@
+# shellcheck shell=bash
+# Shared image-builder support for version 1 of the systemd-boot A/B layout.
+# This file is sourced by rpm2img after root/verity construction.
+
+build_update_ukis() {
+  local stage slot stub loader kver filesystem uki_path
+  stage="${BOOT_MOUNT}/.uki-ab"
+  mkdir -p "${stage}"
+  mapfile -t stubs < <(find "${ROOT_MOUNT}/usr/lib/systemd/boot/efi" -name 'linux*.efi.stub' -type f)
+  [[ "${#stubs[@]}" == 1 ]] || { echo "expected one systemd stub" >&2; return 1; }
+  stub="${stubs[0]}"
+  loader="${BOOT_MOUNT}/efi/EFI/BOOT/systemd-boot${efi_arch}.efi"
+  [[ -s "${loader}" ]] || { echo "systemd-boot loader missing" >&2; return 1; }
+  mapfile -t kernels < <(find "${ROOT_MOUNT}/lib/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+  [[ "${#kernels[@]}" == 1 ]] || { echo "expected one kernel/module tree" >&2; return 1; }
+  kver="${kernels[0]}"
+  filesystem="ext4"
+  [[ "${EROFS_ROOT_PARTITION}" != "yes" ]] || filesystem="erofs"
+
+  # Both loader and UKI must chain to firmware db. Never enroll or use a key
+  # generated on the updating host.
+  sign_uki "${loader}"
+  mcopy -i "${EFI_IMAGE}" "${loader}" "::/EFI/BOOT/BOOT${efi_arch^^}.EFI"
+  mmd -i "${EFI_IMAGE}" ::/EFI/Linux ::/EFI/Bottlerocket ::/loader
+  printf '%s\n' 'default bottlerocket-A*.efi' 'timeout 0' 'editor no' \
+    'auto-entries no' 'auto-firmware no' >"${stage}/loader.conf"
+  mcopy -i "${EFI_IMAGE}" "${stage}/loader.conf" ::/loader/loader.conf
+
+  local -a table
+  # Convert the dm-mod.create prefix to a dmsetup table. Disk addresses are
+  # resolved inside the signed initrd; only these two placeholders vary.
+  table=(0 "${DM_VERITY_ROOT[@]:1}")
+  table[4]='@ROOT@'
+  table[5]='@HASH@'
+  for slot in A B; do
+    mkdir -p "${stage}/${slot}"
+    python3 "${0%/*}/uki-initrd" "${ROOT_MOUNT}" "${stage}/${slot}"
+    printf '%s\n' "${slot}" >"${stage}/${slot}/etc/uki-slot"
+    printf '%s\n' "${table[*]}" >"${stage}/${slot}/etc/verity-table"
+    printf '%s\n' "${filesystem}" >"${stage}/${slot}/etc/root-filesystem"
+    (
+      cd "${stage}/${slot}"
+      find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 --reproducible
+    ) >"${stage}/${slot}.cpio"
+    uki_path="${stage}/bottlerocket-${slot}.efi"
+    ukify build \
+      --stub "${stub}" \
+      --linux "${BOOT_MOUNT}/vmlinuz" \
+      --uname "${kver}" \
+      --initrd "${stage}/${slot}.cpio" \
+      --cmdline "${KERNEL_PARAMETERS} $(uki_bootconfig_cmdline "${VARIANT}") rdinit=/init panic=10 ro selinux=1 enforcing=1 -- systemd.log_target=journal-or-kmsg" \
+      --os-release "@${ROOT_MOUNT}/usr/lib/os-release" \
+      --output "${uki_path}"
+    sign_uki "${uki_path}"
+    generate_hmac "${uki_path}" "EFI/Linux/bottlerocket-${slot}.efi"
+    lz4 -c "${uki_path}" >"${OUTPUT_DIR}/${FILENAME_PREFIX}-uki-${slot}.efi.lz4"
+    lz4 -c "${stage}/.bottlerocket-${slot}.efi.hmac" >"${OUTPUT_DIR}/${FILENAME_PREFIX}-uki-${slot}.hmac.lz4"
+    if [[ "${slot}" == A ]]; then
+      mcopy -i "${EFI_IMAGE}" "${uki_path}" ::/EFI/Linux/bottlerocket-A.efi
+      mcopy -i "${EFI_IMAGE}" "${stage}/.bottlerocket-A.efi.hmac" ::/EFI/Bottlerocket/bottlerocket-A.hmac
+    fi
+  done
+  dd if="${EFI_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff["EFI-A"]}"
+  rm -rf "${stage}"
+  rm -f "${BOOT_MOUNT}/vmlinuz"
+}

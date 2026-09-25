@@ -346,7 +346,27 @@ set_partition_sizes() {
   pp_size["BIOS"]="${BIOS_MIB}"
   ((offset += BIOS_MIB))
 
-  if [[ "${in_place_updates}" == "yes" ]]; then
+  if [[ "${in_place_updates}" == "yes" && "${uki_image}" == "yes" ]]; then
+    # One ESP holds the loader and two UKIs; preserve the total budget formerly
+    # used by both EFI/BOOT pairs. Root/hash banks remain separate.
+    pp_offset["EFI-A"]="${offset}"
+    pp_size["EFI-A"]="$((2 * (EFI_MIB + boot_mib)))"
+    ((offset += pp_size["EFI-A"]))
+    for bank in A B; do
+      pp_offset["BOOT-${bank}"]="${offset}"
+      pp_size["BOOT-${bank}"]="0"
+      pp_offset["ROOT-${bank}"]="${offset}"
+      pp_size["ROOT-${bank}"]="${root_mib}"
+      ((offset += root_mib))
+      pp_offset["HASH-${bank}"]="${offset}"
+      pp_size["HASH-${bank}"]="${hash_mib}"
+      ((offset += hash_mib))
+      pp_offset["RESERVED-${bank}"]="${offset}"
+      pp_size["RESERVED-${bank}"]="${reserved_mib}"
+      ((offset += reserved_mib))
+    done
+    pp_size["EFI-B"]="0"
+  elif [[ "${in_place_updates}" == "yes" ]]; then
     # Allocate two partition banks to support in-place updates.
     for bank in A B; do
       pp_offset["EFI-${bank}"]="${offset}"

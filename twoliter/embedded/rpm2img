@@ -53,6 +53,8 @@ done
 # Import the image helper functions.
 # shellcheck source=imghelper
 . "${0%/*}/imghelper"
+# shellcheck source=ukihelper
+. "${0%/*}/ukihelper"
 
 # Import the guest-images copy helper.
 # shellcheck source=guest-images-helper
@@ -85,8 +87,10 @@ if [[ "${STANDALONE_IMAGE}" == "yes" ]]; then
 fi
 
 if [[ "${UKI_IMAGE}" == "yes" && "${IN_PLACE_UPDATES}" == "yes" ]]; then
-  echo "\`image-format = \"uki\"\` is incompatible with 'in-place-updates'" >&2
-  exit 1
+  if [[ "${UEFI_SECURE_BOOT}" != "yes" || "${EPHEMERAL_ENCRYPTION_KEYS}" != "yes" ]]; then
+    echo "UKI A/B updates require secure boot and ephemeral encryption keys" >&2
+    exit 1
+  fi
 fi
 
 if [[ "${EPHEMERAL_ENCRYPTION_KEYS}" == "yes" && "${UKI_IMAGE}" != "yes" ]]; then
@@ -177,7 +181,11 @@ fi
 if [[ "${STANDALONE_IMAGE}" == "no" ]]; then
   partitions+=(RESERVED-A)
   if [[ "${IN_PLACE_UPDATES}" == "yes" ]]; then
-    partitions+=(EFI-B BOOT-B ROOT-B HASH-B RESERVED-B)
+    if [[ "${UKI_IMAGE}" == "yes" ]]; then
+      partitions+=(ROOT-B HASH-B RESERVED-B)
+    else
+      partitions+=(EFI-B BOOT-B ROOT-B HASH-B RESERVED-B)
+    fi
   fi
   partitions+=(PRIVATE DATA-A DATA-B)
 fi
@@ -214,12 +222,9 @@ done
 
 sgdisk --clear "${partargs[@]}" --sort --print "${OS_IMAGE}"
 
-# For UKI images (single-bank only; in-place-updates is disallowed for UKI_IMAGE,
-# see the check above), EFI-A's (which in this case also plays the role of BOOT-A)
-# is fixed for the life of the image and is known immediately after partitioning.
-# Capture it now so it can be baked into the .cmdline PE section - systemd-stub
-# does not expand shell variables the way GRUB's gptprio.next does, so a literal
-# "$boot_uuid" placeholder would otherwise reach the kernel unexpanded.
+# Direct-boot UKIs embed the ESP's UUID because systemd-stub does not expand
+# GRUB variables. The update-enabled builder replaces the two device addresses
+# in the verity table with signed initrd placeholders before UKI assembly.
 BOOT_PARTUUID=""
 if [[ "${UKI_IMAGE}" == "yes" ]]; then
   BOOT_PARTUUID="$(get_partition_uuid "${OS_IMAGE}" "${partlabel["EFI-A"]}")"
@@ -546,6 +551,16 @@ else
 fi
 
 # Set in-place updates flag
+if [[ "${UKI_IMAGE}" == "yes" && "${IN_PLACE_UPDATES}" == "yes" ]]; then
+  printf '1\n' >"${ROOT_MOUNT}/usr/share/bottlerocket/uki-layout"
+  # signpost, ordered through Bottlerocket's preconfigured target, owns blessing.
+  ln -sf /dev/null "${ROOT_MOUNT}/usr/lib/systemd/system/systemd-bless-boot.service"
+  mkdir -p "${ROOT_MOUNT}/usr/lib/systemd/system/generate-fips-hmac-path-uki.service.d"
+  printf '%s\n' '[Unit]' 'After=prepare-boot.service' 'Requires=prepare-boot.service' \
+    '[Service]' 'ExecStart=' 'ExecStart=/usr/bin/signpost prepare-uki-hmac' \
+    >"${ROOT_MOUNT}/usr/lib/systemd/system/generate-fips-hmac-path-uki.service.d/10-ab.conf"
+fi
+
 if [[ "${IN_PLACE_UPDATES}" == "yes" ]]; then
   printf "%s\n" "IN_PLACE_UPDATES=true" >>"${ROOT_MOUNT}/${SYS_ROOT}/usr/share/bottlerocket/image-features.env"
 else
@@ -624,7 +639,9 @@ fi
 dd if="${VERITY_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff["HASH-A"]}"
 
 # Assemble UKI with ukify if UKI_IMAGE mode
-if [[ "${UKI_IMAGE}" == "yes" ]]; then
+if [[ "${UKI_IMAGE}" == "yes" && "${IN_PLACE_UPDATES}" == "yes" ]]; then
+  build_update_ukis
+elif [[ "${UKI_IMAGE}" == "yes" ]]; then
   # Find systemd-stub from uki-stub package
   mapfile -t stub_files < <(find "${ROOT_MOUNT}" -name "linux*.efi.stub" -type f 2>/dev/null)
   if [[ ${#stub_files[@]} -eq 0 ]]; then

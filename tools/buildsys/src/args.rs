@@ -46,6 +46,7 @@ pub(crate) enum Command {
     BuildVariant(Box<BuildVariantArgs>),
     RepackVariant(Box<RepackVariantArgs>),
     VariantImageFormat(Box<VariantImageFormatArgs>),
+    VariantInPlaceUpdates(Box<VariantImageFormatArgs>),
 }
 
 impl Command {
@@ -56,7 +57,7 @@ impl Command {
             Command::BuildVariant(_) => BuildType::Variant,
             Command::RepackVariant(_) => BuildType::Repack,
             // `variant-image-format` is a read-only query, so it has no `BuildType`
-            Command::VariantImageFormat(_) => {
+            Command::VariantImageFormat(_) | Command::VariantInPlaceUpdates(_) => {
                 unreachable!("variant-image-format does not have a build type")
             }
         }
