@@ -3,7 +3,7 @@
 # This file is sourced by rpm2img after root/verity construction.
 
 build_update_ukis() {
-  local stage slot stub loader kver filesystem uki_path
+  local stage slot stub loader kver uki_path part number
   stage="${BOOT_MOUNT}/.uki-ab"
   mkdir -p "${stage}"
   mapfile -t stubs < <(find "${ROOT_MOUNT}/usr/lib/systemd/boot/efi" -name 'linux*.efi.stub' -type f)
@@ -14,8 +14,9 @@ build_update_ukis() {
   mapfile -t kernels < <(find "${ROOT_MOUNT}/lib/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
   [[ "${#kernels[@]}" == 1 ]] || { echo "expected one kernel/module tree" >&2; return 1; }
   kver="${kernels[0]}"
-  filesystem="ext4"
-  [[ "${EROFS_ROOT_PARTITION}" != "yes" ]] || filesystem="erofs"
+  # The patched, signed stub resolves this token from its own GPT boot device.
+  strings --encoding=l "${stub}" | grep -Fx '@BOOT_PARTUUID@' >/dev/null ||
+    { echo "systemd stub lacks Bottlerocket disk resolution" >&2; return 1; }
 
   # Both loader and UKI must chain to firmware db. Never enroll or use a key
   # generated on the updating host.
@@ -27,28 +28,22 @@ build_update_ukis() {
   mcopy -i "${EFI_IMAGE}" "${stage}/loader.conf" ::/loader/loader.conf
 
   local -a table
-  # Convert the dm-mod.create prefix to a dmsetup table. Disk addresses are
-  # resolved inside the signed initrd; only these two placeholders vary.
-  table=(0 "${DM_VERITY_ROOT[@]:1}")
-  table[4]='@ROOT@'
-  table[5]='@HASH@'
+  local -A numbers
+  number=1
+  for part in "${partitions[@]}"; do
+    numbers["${part}"]="${number}"
+    number=$((number + 1))
+  done
   for slot in A B; do
-    mkdir -p "${stage}/${slot}"
-    python3 "${0%/*}/uki-initrd" "${ROOT_MOUNT}" "${stage}/${slot}"
-    printf '%s\n' "${slot}" >"${stage}/${slot}/etc/uki-slot"
-    printf '%s\n' "${table[*]}" >"${stage}/${slot}/etc/verity-table"
-    printf '%s\n' "${filesystem}" >"${stage}/${slot}/etc/root-filesystem"
-    (
-      cd "${stage}/${slot}"
-      find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0 --reproducible
-    ) >"${stage}/${slot}.cpio"
+    table=("${DM_VERITY_ROOT[@]}")
+    table[4]="PARTUUID=@BOOT_PARTUUID@/PARTNROFF=$((numbers[ROOT-${slot}] - numbers[EFI-A]))"
+    table[5]="PARTUUID=@BOOT_PARTUUID@/PARTNROFF=$((numbers[HASH-${slot}] - numbers[EFI-A]))"
     uki_path="${stage}/bottlerocket-${slot}.efi"
     ukify build \
       --stub "${stub}" \
       --linux "${BOOT_MOUNT}/vmlinuz" \
       --uname "${kver}" \
-      --initrd "${stage}/${slot}.cpio" \
-      --cmdline "${KERNEL_PARAMETERS} $(uki_bootconfig_cmdline "${VARIANT}") rdinit=/init panic=10 ro selinux=1 enforcing=1 -- systemd.log_target=journal-or-kmsg" \
+      --cmdline "${KERNEL_PARAMETERS} $(uki_bootconfig_cmdline "${VARIANT}") root=/dev/dm-0 rootwait ro raid=noautodetect random.trust_cpu=on panic=10 selinux=1 enforcing=1 dm-mod.create=\"${table[*]}\" -- systemd.log_target=journal-or-kmsg" \
       --os-release "@${ROOT_MOUNT}/usr/lib/os-release" \
       --output "${uki_path}"
     sign_uki "${uki_path}"

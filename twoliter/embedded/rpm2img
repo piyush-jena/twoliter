@@ -511,20 +511,6 @@ mkdir -p "${ROOT_MOUNT}/boot/grub"
 # Now that we're done messing with /, move /boot out of it
 mv "${ROOT_MOUNT}/boot"/* "${BOOT_MOUNT}"
 
-if [[ "${UKI_IMAGE}" == "yes" && "${IN_PLACE_UPDATES}" == "yes" ]]; then
-  # Regular Bottlerocket kernels deliberately ignore external initramfs.
-  # Select the unsigned UKI-only executable before signing its UKI envelope.
-  [[ -s "${BOOT_MOUNT}/vmlinuz-uki" && -s "${BOOT_MOUNT}/config-uki" ]] ||
-    { echo "UKI updates require the kernel uki subpackage" >&2; exit 1; }
-  grep -qx '# CONFIG_INITRAMFS_FORCE is not set' "${BOOT_MOUNT}/config-uki" ||
-    { echo "UKI kernel must permit its signed initrd" >&2; exit 1; }
-  mv "${BOOT_MOUNT}/vmlinuz-uki" "${BOOT_MOUNT}/vmlinuz"
-  mv "${BOOT_MOUNT}/config-uki" "${BOOT_MOUNT}/config"
-elif [[ -e "${BOOT_MOUNT}/vmlinuz-uki" ]]; then
-  echo "The UKI kernel subpackage requires the signed UKI update layout" >&2
-  exit 1
-fi
-
 if [[ "${UEFI_SECURE_BOOT}" == "yes"  && "${UKI_IMAGE}" == "no" ]]; then
   # In UKI mode the kernel is embedded in the UKI and signed as part of it, so
   # the standalone vmlinuz is never signed on its own.
