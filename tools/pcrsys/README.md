@@ -38,25 +38,30 @@ JSON output with predicted PCR values, keyed by PCR index:
 
 ## Supported PCRs
 
-| PCR | Description |
-|-----|-------------|
-| 0 | Platform firmware (static per platform) |
-| 1 | Platform configuration (static per platform) |
-| 2 | Option ROM code (separator only) |
-| 3 | Option ROM configuration (separator only) |
-| 4 | Boot manager code (shim, grub, vmlinuz authenticode hashes) |
-| 5 | GPT partition table |
-| 6 | Resume events (separator only) |
-| 7 | Secure Boot policy (PK, KEK, db, dbx, SbatLevel, MokListRT) |
-| 9 | Kernel command line (grub.cfg + bootconfig) |
-| 10 | Zero (unused) |
-| 11 | Boot phases (systemd) |
-| 12 | Zero (unused) |
-| 13 | Zero (unused) |
-| 14 | Shim MOK (MokList, MokListX, MokListTrusted) |
-| 15 | Zero (unused) |
+The [PCR reference](../../docs/design/systemd-boot-ab-pcrs.md) explains all
+PCRs 0–23, their actual producers, platform assumptions and measured-test limits.
+Predictions are SHA-256 model outputs; an omitted PCR is unknown, not zero.
 
-PCRs 4 and 9 are skipped for images with A/B boot partitions since the active kernel and root hash can change.
+| PCR | Prediction behavior |
+| --- | --- |
+| 0 | Hard-coded AWS value; omitted on VMware/metal. |
+| 1 | Separator-only on VMware; omitted on AWS/metal. |
+| 2 | Legacy AWS/VMware separator-only; omitted on metal and dedicated systemd path. |
+| 3 | AWS/VMware separator-only; omitted on metal. |
+| 4 | Legacy single-bank executable-chain model; omitted for A/B. |
+| 5 | AWS/metal GPT candidates: 72 for A/B, 12 for single-bank; omitted on VMware. |
+| 6 | AWS/VMware separator-only; omitted on metal. |
+| 7 | Legacy Secure Boot policy model; omitted on dedicated systemd path. |
+| 9 | Legacy single-bank command-line model; omitted for A/B. |
+| 10 | Zero assumption. |
+| 11 | Zero plus six cumulative Bottlerocket boot-phase states. |
+| 12 | Legacy zero assumption; omitted on dedicated systemd path. |
+| 13 | Zero assumption. |
+| 14 | Legacy shim MOK model; omitted on dedicated systemd path. |
+| 15 | Zero assumption. |
+
+PCRs 8 and 16–23 are not predicted. Zero assumptions do not establish that a
+register is unused on a running system.
 
 ## Supported Platforms
 
@@ -86,11 +91,25 @@ JSON file containing Secure Boot variables:
 ### Disk image
 
 GPT-partitioned disk image containing:
-- EFI System Partition (FAT) with `/EFI/BOOT/boot{aa64,x64}.efi` (shim) and `grub{aa64,x64}.efi`
-- Boot partition (ext4) with `/vmlinuz`, `/grub.cfg`, and `/bootconfig.data`
+
+- EFI-A (FAT) with `/EFI/BOOT/boot{aa64,x64}.efi` (shim). Legacy prediction also
+  requires `/EFI/BOOT/grub{aa64,x64}.efi`; dedicated-loader detection checks
+  `/EFI/BOOT/systemd-boot{aa64,x64}.efi`.
+- BOOT-A (Bottlerocket BOOT type, ext4) with `/vmlinuz` and `/grub/grub.cfg`.
+- PRIVATE (ext4) with `/bootconfig.data`.
+
+BOOT-B is optional for legacy images; its presence selects A/B prediction.
+The dedicated systemd loader requires BOOT-B.
 
 ## GPT systemd-boot images
 
-The dedicated `systemd-boot-ab` loader is detected on EFI-A. It requires an A/B disk layout. Signed GRUB configuration remains in the intermediate image for legacy loader recovery, but does not select the PCR prediction model.
+The dedicated `systemd-boot-ab` loader is detected on EFI-A. It requires an A/B disk layout. Signed GRUB configuration remains in the intermediate image for legacy loader recovery, but does not select the PCR prediction model. Prediction still extracts BOOT-A `/vmlinuz`, BOOT-A `/grub/grub.cfg`, and PRIVATE `/bootconfig.data` on this path; only extraction of the GRUB EFI binary is skipped. Missing required files fail the run even when their associated PCRs are omitted.
 
-PCRs 4, 5 and 9 remain omitted for A/B images. This loader also omits PCRs 2, 7, 12 and 14: driver measurements depend on the firmware/shim verification path, load options depend on the selected bank, and delegation to a retained legacy shim can add policy measurements. These registers are not reported as zero or as legacy GRUB values. Platform-specific predictions for the remaining registers retain their existing behavior. Qualify the actual firmware and installed transition before using predictions for attestation policy.
+PCRs 4 and 9 remain omitted for A/B images. This loader also omits PCRs 2, 7, 12 and 14: driver measurements depend on the firmware/shim verification path, load options depend on the selected bank, and delegation to a retained legacy shim can add policy measurements. These registers are not reported as zero or as legacy GRUB values. Platform-specific predictions for the remaining registers retain their existing behavior. Qualify the actual firmware and installed transition before using predictions for attestation policy.
+
+PCR 5 retains its AWS/metal candidate set; those candidates do not model arbitrary
+GPT states or installed BootOrder/BootNext changes. Detection inspects EFI-A only.
+An installed migration retaining legacy EFI-A while firmware selects new EFI-B
+is not modeled correctly by that detector. See the [installed migration
+design](../../docs/design/systemd-boot-ab.md) before using image predictions for
+an upgraded machine.
