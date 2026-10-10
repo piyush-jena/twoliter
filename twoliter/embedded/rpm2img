@@ -640,6 +640,7 @@ if [[ -d "${BOOT_MOUNT}/boot-config.d" ]]; then
   # Concatenate and sort snippets to ensure consistent ordering
   find "${BOOT_MOUNT}/boot-config.d" -type f -mindepth 1 -maxdepth 1 -print0 |
     xargs -0 cat | sort >"${BOOTCONFIG_INPUT}"
+  "${0%/*}/ukisys" merge-bootconfig --input "${BOOTCONFIG_INPUT}" --output "${BOOTCONFIG_INPUT}"
   rm -rf "${BOOT_MOUNT}/boot-config.d"
 fi
 

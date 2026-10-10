@@ -2,9 +2,11 @@
 //! assembly and PCR prediction. No shell evaluation or I/O occurs here.
 
 mod command_line;
+mod dropins;
 mod parsers;
 
 pub use command_line::{format_params, predict_grub_cmdline, uki_load_options};
+pub use dropins::merge_dropins;
 
 mod error {
     pub type Result<T> = std::result::Result<T, snafu::Whatever>;

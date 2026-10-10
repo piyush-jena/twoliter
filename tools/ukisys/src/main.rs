@@ -30,6 +30,13 @@ struct Args {
 /// Subcommands for UKI construction and repacking.
 #[derive(Subcommand)]
 enum Command {
+    /// Merge package drop-ins before generating binary bootconfig.
+    MergeBootconfig {
+        #[arg(long)]
+        input: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Construct a UKI command-line file from generated binary bootconfig.
     Cmdline {
         #[arg(long)]
@@ -57,6 +64,13 @@ enum Command {
 fn main() -> Result<()> {
     let args = Args::parse();
     match &args.command {
+        Command::MergeBootconfig { input, output } => {
+            let text = std::fs::read_to_string(input)
+                .with_whatever_context(|_| format!("Failed to read '{}'", input.display()))?;
+            let merged = bootconfig::merge_dropins(&text)?;
+            std::fs::write(output, merged)
+                .with_whatever_context(|_| format!("Failed to write '{}'", output.display()))
+        }
         Command::DeriveStub { uki, stub } => derive_stub(uki, stub),
         Command::Cmdline {
             bootconfig,
