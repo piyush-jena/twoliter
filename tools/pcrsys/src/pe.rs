@@ -3,17 +3,18 @@
 //! This matches the behavior of `pesign --hash`.
 
 use crate::error::Result;
+use crate::predict::PcrDigests;
 use authenticode::authenticode_digest;
 use object::read::pe::PeFile;
 use object::{pe, Architecture, Object, ObjectSection};
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha384};
 use snafu::{ensure_whatever, whatever, OptionExt, ResultExt};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-/// Calculate Authenticode SHA256 hash of a PE32+ file.
+/// Calculate Authenticode SHA-256 and SHA-384 hashes of a PE32+ file.
 /// Pads to 8-byte boundary to match pesign behavior.
-pub fn get_authenticode_hash(pe_data: &[u8]) -> Result<[u8; 32]> {
+pub fn get_authenticode_hash(pe_data: &[u8]) -> Result<PcrDigests> {
     let padding = (8 - (pe_data.len() % 8)) % 8;
     let data: Cow<[u8]> = if padding > 0 {
         let mut padded = pe_data.to_vec();
@@ -32,7 +33,14 @@ pub fn get_authenticode_hash(pe_data: &[u8]) -> Result<[u8; 32]> {
         authenticode_digest(&pe, &mut hasher).is_ok(),
         "authenticode digest failed"
     );
-    Ok(hasher.finalize().into())
+    let sha256 = hasher.finalize().into();
+    let mut hasher = Sha384::new();
+    ensure_whatever!(
+        authenticode_digest(&pe, &mut hasher).is_ok(),
+        "authenticode SHA-384 digest failed"
+    );
+    let sha384 = hasher.finalize().into();
+    Ok(PcrDigests { sha256, sha384 })
 }
 
 /// Extract vendor certificate from shim's `.vendor_cert` section.
@@ -347,7 +355,7 @@ pub(crate) mod tests {
         let pe = build_test_shim();
         let hash = get_authenticode_hash(&pe).unwrap();
         assert_eq!(
-            hex::encode(hash),
+            hex::encode(hash.sha256),
             "31afa5f057f8d697e026c2c21930bc01eec2e4b9ccf66d0006c9539d247aaa92"
         );
     }

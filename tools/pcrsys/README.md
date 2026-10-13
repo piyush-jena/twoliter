@@ -4,7 +4,7 @@ A TPM Platform Configuration Register (PCR) prediction tool for Bottlerocket.
 
 ## Overview
 
-`pcrsys` predicts TPM PCR values (SHA-256) for Bottlerocket images without requiring a running system. It analyzes disk images and EFI variables to compute what the PCR values would be after boot, enabling pre-registration of expected measurements for attestation policies.
+`pcrsys` predicts TPM PCR values (SHA-256 and SHA-384) for Bottlerocket images without requiring a running system. It analyzes disk images and EFI variables to compute what the PCR values would be after boot, enabling pre-registration of expected measurements for attestation policies.
 
 ## Usage
 
@@ -29,12 +29,18 @@ JSON output with predicted PCR values, keyed by PCR index:
 ```json
 {
   "pcrs": {
-    "0": { "sha256": ["<hex digest>"] },
-    "4": { "sha256": ["<hex digest>"] },
-    "7": { "sha256": ["<hex digest>"] }
+    "0": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] },
+    "4": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] },
+    "7": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] }
   }
 }
 ```
+
+Both banks are emitted by default for every predicted PCR, for GRUB and UKI
+images. Each bank hashes the original measured bytes and extends its own PCR
+value. Alternative values have the same ordering in both arrays, including GPT
+states and PCR 11 boot phases. Compare each prediction with the matching active
+TPM bank on the target machine.
 
 ## Supported PCRs
 

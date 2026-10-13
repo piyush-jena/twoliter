@@ -6,7 +6,7 @@
 //!
 //! The dictionary contains common patterns found in UEFI variable stores: GUIDs, variable
 //! names (ConOut, BootOrder, SecureBootEnable, etc.), certificate fragments, and device
-//! path structures. It is an opaque binary blob defined by AWS—there is no specification
+//! path structures. It is an opaque binary blob defined by AWS - there is no specification
 //! or algorithm to derive it; it must be copied verbatim from the reference implementation.
 //!
 //! Source: <https://github.com/awslabs/python-uefivars/blob/main/pyuefivars/aws_v0.py>

@@ -192,7 +192,7 @@ mod tests {
         let result = predict(&ctx).unwrap().unwrap();
         let cmdline_with_newline = "BOOT_IMAGE=/vmlinuz -- x\n";
         let expected = extend_pcr_string(&PCR_INIT_VAL, cmdline_with_newline);
-        assert_eq!(result.1.sha256[0], hex::encode(expected));
+        assert_eq!(result.1, PcrRecord::new(expected));
     }
 
     #[test_case(b"linux /wrong/path console=tty0 -- x" ; "wrong_kernel_path")]

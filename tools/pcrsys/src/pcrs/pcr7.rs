@@ -8,10 +8,9 @@ use crate::error::Result;
 use crate::pe::{extract_sbat_level, extract_vendor_cert};
 use crate::platform::Platform;
 use crate::predict::{
-    extend_pcr, extend_pcr_data, extend_pcr_separator, PcrContext, PcrIndex, PcrRecord,
+    extend_pcr_data, extend_pcr_separator, PcrContext, PcrDigests, PcrIndex, PcrRecord,
     PCR_INIT_VAL,
 };
-use sha2::{Digest, Sha256};
 use snafu::{ensure_whatever, OptionExt, ResultExt};
 
 /// VMware SignatureOwner GUID used when enrolling Secure Boot keys via OVF.
@@ -102,28 +101,28 @@ fn predict_variant(
     dbx_data: &[u8],
     vendor_cert: &[u8],
     sbat_level: &[u8],
-) -> Result<[u8; 32]> {
+) -> Result<PcrDigests> {
     // 1. SecureBoot = 0x01
     let secure_boot_data =
         generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "SecureBoot", &[0x01]);
-    let mut pcr = extend_pcr(&PCR_INIT_VAL, &Sha256::digest(&secure_boot_data).into());
+    let mut pcr = extend_pcr_data(&PCR_INIT_VAL, &secure_boot_data);
 
     // 2. PK
     let pk_var_data = generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "PK", pk_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&pk_var_data).into());
+    pcr = extend_pcr_data(&pcr, &pk_var_data);
 
     // 3. KEK
     let kek_var_data = generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "KEK", kek_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&kek_var_data).into());
+    pcr = extend_pcr_data(&pcr, &kek_var_data);
 
     // 4. db
     let db_var_data = generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "db", db_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&db_var_data).into());
+    pcr = extend_pcr_data(&pcr, &db_var_data);
 
     // 5. dbx
     let dbx_var_data =
         generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "dbx", dbx_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&dbx_var_data).into());
+    pcr = extend_pcr_data(&pcr, &dbx_var_data);
 
     // 6. Separator
     pcr = extend_pcr_separator(&pcr);
@@ -133,17 +132,17 @@ fn predict_variant(
     // If multiple signature lists with different sizes exist, only the first is extracted.
     let db_sig = extract_first_sig_from_esl(db_data)?;
     let db_authority = generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "db", &db_sig);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&db_authority).into());
+    pcr = extend_pcr_data(&pcr, &db_authority);
 
     // 8. SbatLevel
     let sbat_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "SbatLevel", sbat_level);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&sbat_var_data).into());
+    pcr = extend_pcr_data(&pcr, &sbat_var_data);
 
     // 9. MokListRT - owner GUID + vendor certificate
     let mut mok_data = SHIM_LOCK_GUID.to_bytes_le().to_vec();
     mok_data.extend_from_slice(vendor_cert);
     let mok_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "MokListRT", &mok_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&mok_var_data).into());
+    pcr = extend_pcr_data(&pcr, &mok_var_data);
 
     Ok(pcr)
 }
@@ -173,7 +172,7 @@ fn extract_first_sig_from_esl(esl: &[u8]) -> Result<Vec<u8>> {
     Ok(esl[header.sig_start..header.sig_start + header.sig_size].to_vec())
 }
 
-fn predict_uki(vars: &EfiVars) -> Result<[u8; 32]> {
+fn predict_uki(vars: &EfiVars) -> Result<PcrDigests> {
     let mut pcr = extend_pcr_data(
         &PCR_INIT_VAL,
         &generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "SecureBoot", &[1]),

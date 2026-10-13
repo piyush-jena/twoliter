@@ -3,8 +3,7 @@
 use crate::efi::{generate_null_esl_sha256, generate_x509_esl};
 use crate::error::Result;
 use crate::pe::extract_vendor_cert;
-use crate::predict::{extend_pcr, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL};
-use sha2::{Digest, Sha256};
+use crate::predict::{extend_pcr_data, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL};
 
 /// Predict PCR 14 value.
 ///
@@ -18,18 +17,14 @@ pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
 
     // MokList: X509 ESL containing vendor certificate
     let mok_list_esl = generate_x509_esl(&vendor_cert)?;
-    let mok_list_digest: [u8; 32] = Sha256::digest(&mok_list_esl).into();
 
     // MokListX: null SHA256 ESL (empty revocation list)
     let mok_list_x_esl = generate_null_esl_sha256();
-    let mok_list_x_digest: [u8; 32] = Sha256::digest(&mok_list_x_esl).into();
 
+    let mut pcr = extend_pcr_data(&PCR_INIT_VAL, &mok_list_esl);
+    pcr = extend_pcr_data(&pcr, &mok_list_x_esl);
     // MokListTrusted: 0x01 (MOK_VARIABLE_INVERSE flag)
-    let mok_list_trusted_digest: [u8; 32] = Sha256::digest([0x01u8]).into();
-
-    let mut pcr = extend_pcr(&PCR_INIT_VAL, &mok_list_digest);
-    pcr = extend_pcr(&pcr, &mok_list_x_digest);
-    pcr = extend_pcr(&pcr, &mok_list_trusted_digest);
+    pcr = extend_pcr_data(&pcr, &[0x01]);
 
     Ok(Some((PcrIndex::Pcr14, PcrRecord::new(pcr))))
 }

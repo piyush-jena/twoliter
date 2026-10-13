@@ -13,6 +13,9 @@ mod pe;
 mod platform;
 mod predict;
 
+#[cfg(test)]
+mod test_banks;
+
 use aws_config::profile::ProfileFileCredentialsProvider;
 use aws_types::region::Region;
 use aws_types::SdkConfig;
@@ -324,14 +327,36 @@ mod tests {
             predictions.pcrs[&Pcr0].sha256,
             ["737f767a12f54e70eecbc8684011323ae2fe2dd9f90785577969d7a2013e8c12"]
         );
+        assert_eq!(
+            predictions.pcrs[&Pcr0].sha384,
+            ["6e901b16932f6e036747d7a57696e4a2cc864008ebc016826ca1d7bd42ab5ac8286ccf49cde6c0284cbc4b63d978a2ec"]
+        );
         for index in [Pcr2, Pcr3, Pcr6] {
             assert_eq!(
                 predictions.pcrs[&index].sha256,
                 ["3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969"]
             );
+            assert_eq!(
+                predictions.pcrs[&index].sha384,
+                ["518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4"]
+            );
         }
-        for index in [Pcr10, Pcr14, Pcr15] {
+        for index in [Pcr10, Pcr12, Pcr13, Pcr14, Pcr15] {
             assert_eq!(predictions.pcrs[&index].sha256, [hex::encode([0; 32])]);
+            assert_eq!(predictions.pcrs[&index].sha384, [hex::encode([0; 48])]);
+        }
+        let output = serde_json::to_value(&predictions).unwrap();
+        for record in output["pcrs"].as_object().unwrap().values() {
+            assert_eq!(record.as_object().unwrap().len(), 2);
+            let sha256 = record["sha256"].as_array().unwrap();
+            let sha384 = record["sha384"].as_array().unwrap();
+            assert_eq!(sha256.len(), sha384.len());
+            assert!(!sha384.is_empty());
+            for (bank, width) in [(sha256, 32), (sha384, 48)] {
+                for digest in bank {
+                    assert_eq!(hex::decode(digest.as_str().unwrap()).unwrap().len(), width);
+                }
+            }
         }
     }
 
@@ -381,32 +406,16 @@ mod tests {
             .uki(&changed)
             .build();
         assert_eq!(
-            pcrs::pcr9::predict(&original_ctx)
-                .unwrap()
-                .unwrap()
-                .1
-                .sha256,
-            pcrs::pcr9::predict(&changed_ctx).unwrap().unwrap().1.sha256
+            pcrs::pcr9::predict(&original_ctx).unwrap().unwrap().1,
+            pcrs::pcr9::predict(&changed_ctx).unwrap().unwrap().1
         );
         assert_eq!(
-            pcrs::pcr11::predict(&original_ctx)
-                .unwrap()
-                .unwrap()
-                .1
-                .sha256,
-            pcrs::pcr11::predict(&changed_ctx)
-                .unwrap()
-                .unwrap()
-                .1
-                .sha256
+            pcrs::pcr11::predict(&original_ctx).unwrap().unwrap().1,
+            pcrs::pcr11::predict(&changed_ctx).unwrap().unwrap().1
         );
         assert_ne!(
-            pcrs::pcr4::predict(&original_ctx)
-                .unwrap()
-                .unwrap()
-                .1
-                .sha256,
-            pcrs::pcr4::predict(&changed_ctx).unwrap().unwrap().1.sha256
+            pcrs::pcr4::predict(&original_ctx).unwrap().unwrap().1,
+            pcrs::pcr4::predict(&changed_ctx).unwrap().unwrap().1
         );
     }
 }

@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use std::collections::BTreeMap;
 
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha384};
 
 use crate::efi::EfiVars;
 use crate::gpt::PartitionLayout;
@@ -13,8 +13,30 @@ use crate::platform::Platform;
 
 use crate::error::Result;
 
-/// Initial PCR value (32 zero bytes).
-pub const PCR_INIT_VAL: [u8; 32] = [0u8; 32];
+/// Digests for the two predicted TPM banks.
+///
+/// Keep the banks together so every event and alternative PCR state is measured
+/// in both algorithms, using each bank's own digest width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PcrDigests {
+    pub sha256: [u8; 32],
+    pub sha384: [u8; 48],
+}
+
+impl PcrDigests {
+    pub fn hash(data: &[u8]) -> Self {
+        Self {
+            sha256: Sha256::digest(data).into(),
+            sha384: Sha384::digest(data).into(),
+        }
+    }
+}
+
+/// Initial PCR values: one zero-filled digest per bank.
+pub const PCR_INIT_VAL: PcrDigests = PcrDigests {
+    sha256: [0; 32],
+    sha384: [0; 48],
+};
 
 /// TPM Platform Configuration Register index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -101,51 +123,59 @@ impl PcrPredictions {
 }
 
 /// A single PCR prediction record.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct PcrRecord {
     /// SHA-256 digest values for this PCR.
     pub sha256: Vec<String>,
+    /// SHA-384 digest values in the same state order as SHA-256.
+    pub sha384: Vec<String>,
 }
 
 impl PcrRecord {
-    /// Create a new PCR record with a single SHA-256 digest.
-    pub fn new(digest: [u8; 32]) -> Self {
+    /// Create a new PCR record with one state for both banks.
+    pub fn new(digest: PcrDigests) -> Self {
         Self {
-            sha256: vec![hex::encode(digest)],
+            sha256: vec![hex::encode(digest.sha256)],
+            sha384: vec![hex::encode(digest.sha384)],
         }
     }
 
-    /// Create a new PCR record with multiple SHA-256 digests.
-    pub fn new_multi(digests: Vec<[u8; 32]>) -> Self {
-        Self {
-            sha256: digests.into_iter().map(hex::encode).collect(),
-        }
+    /// Create a new PCR record with multiple states for both banks.
+    pub fn new_multi(digests: Vec<PcrDigests>) -> Self {
+        let (sha256, sha384) = digests
+            .into_iter()
+            .map(|digest| (hex::encode(digest.sha256), hex::encode(digest.sha384)))
+            .unzip();
+        Self { sha256, sha384 }
     }
 }
 
-/// Extend a PCR value with a digest: `SHA256(current || digest)`.
-pub fn extend_pcr(current: &[u8; 32], digest: &[u8; 32]) -> [u8; 32] {
+/// Extend each bank with its own event digest: `H(current || digest)`.
+pub fn extend_pcr(current: &PcrDigests, digest: &PcrDigests) -> PcrDigests {
     let mut hasher = Sha256::new();
-    hasher.update(current);
-    hasher.update(digest);
-    hasher.finalize().into()
+    hasher.update(current.sha256);
+    hasher.update(digest.sha256);
+    let sha256 = hasher.finalize().into();
+    let mut hasher = Sha384::new();
+    hasher.update(current.sha384);
+    hasher.update(digest.sha384);
+    let sha384 = hasher.finalize().into();
+    PcrDigests { sha256, sha384 }
 }
 
 /// Extend a PCR with an event payload by first hashing its bytes.
-pub fn extend_pcr_data(current: &[u8; 32], data: &[u8]) -> [u8; 32] {
-    extend_pcr(current, &Sha256::digest(data).into())
+pub fn extend_pcr_data(current: &PcrDigests, data: &[u8]) -> PcrDigests {
+    extend_pcr(current, &PcrDigests::hash(data))
 }
 
 /// Extend a PCR with a string by first hashing the string.
-pub fn extend_pcr_string(current: &[u8; 32], s: &str) -> [u8; 32] {
-    let string_digest: [u8; 32] = Sha256::digest(s.as_bytes()).into();
-    extend_pcr(current, &string_digest)
+pub fn extend_pcr_string(current: &PcrDigests, s: &str) -> PcrDigests {
+    extend_pcr_data(current, s.as_bytes())
 }
 
 /// Extend a PCR with the EV_SEPARATOR event (4 zero bytes).
-pub fn extend_pcr_separator(current: &[u8; 32]) -> [u8; 32] {
-    let separator_digest: [u8; 32] = Sha256::digest([0u8; 4]).into();
-    extend_pcr(current, &separator_digest)
+pub fn extend_pcr_separator(current: &PcrDigests) -> PcrDigests {
+    extend_pcr_data(current, &[0; 4])
 }
 
 #[cfg(test)]
@@ -249,60 +279,5 @@ pub mod test_support {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_extend_pcr() {
-        let current = [0u8; 32];
-        let digest = Sha256::digest(b"test").into();
-        let result = extend_pcr(&current, &digest);
-        assert_eq!(
-            hex::encode(result),
-            "516caf854bba78a30ba2a84f9e400642c01c1a3fa429268ff5b47c32a655d4b3"
-        );
-    }
-
-    #[test]
-    fn test_extend_pcr_string() {
-        let current = [0u8; 32];
-        let result = extend_pcr_string(&current, "test");
-        // Should be SHA256(zeros || SHA256("test"))
-        let expected_inner: [u8; 32] = Sha256::digest(b"test").into();
-        let expected = extend_pcr(&current, &expected_inner);
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_extend_pcr_separator() {
-        let current = [0u8; 32];
-        let result = extend_pcr_separator(&current);
-        // Should be SHA256(zeros || SHA256([0,0,0,0]))
-        let separator_digest: [u8; 32] = Sha256::digest([0u8; 4]).into();
-        let expected = extend_pcr(&current, &separator_digest);
-        assert_eq!(result, expected);
-        // This should match PCR 2/3/6 separator-only value
-        assert_eq!(
-            hex::encode(result),
-            "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969"
-        );
-    }
-
-    #[test]
-    fn test_pcr_record_new() {
-        let digest = [0xab; 32];
-        let record = PcrRecord::new(digest);
-        assert_eq!(record.sha256.len(), 1);
-        assert_eq!(record.sha256[0], hex::encode(digest));
-    }
-
-    #[test]
-    fn test_pcr_record_new_multi() {
-        let d1 = [0xab; 32];
-        let d2 = [0xcd; 32];
-        let record = PcrRecord::new_multi(vec![d1, d2]);
-        assert_eq!(record.sha256.len(), 2);
-        assert_eq!(record.sha256[0], hex::encode(d1));
-        assert_eq!(record.sha256[1], hex::encode(d2));
-    }
-}
+#[path = "test_predict.rs"]
+mod tests;
