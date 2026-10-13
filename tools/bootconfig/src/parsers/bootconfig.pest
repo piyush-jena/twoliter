@@ -1,15 +1,104 @@
-// The supported Linux bootconfig subset. Assignment operators += and := are
-// deliberately rejected. Backslashes are literal, not shell escapes.
+// bootconfig.pest - Linux kernel boot configuration format
+// See: Documentation/admin-guide/bootconfig.rst
+//
+// Bootconfig is a structured key-value format for kernel parameters:
+// - Dotted keys: kernel.param = value
+// - Block syntax: kernel { param = value }
+// - Arrays: key = val1, val2, val3
+// - Boolean flags: init.splash (key without value)
+//
+// This grammar supports a subset of Linux bootconfig. Assignment operators +=
+// and := are deliberately rejected. Backslashes are literal, not shell escapes.
+
+// =============================================================================
+// Top-level structure
+// =============================================================================
+
+// Entry point - config is a sequence of statements
 config = { SOI ~ statement* ~ EOI }
+
+// Statements are silent (_) to avoid extra nesting.
+// Try blocks and assignments before flags; flags also require a statement end.
 statement = _{ block | pair | flag | NEWLINE }
+
+// =============================================================================
+// Block syntax: prefix { ... }
+// =============================================================================
+
+// Block groups keys under a common prefix.
+// Example: kernel { foo = bar; baz = qux }
+// A prefix may itself be dotted, and a closing brace may have a semicolon.
+// Blocks are non-atomic, so whitespace is allowed between their parts.
 block = { key ~ "{" ~ statement* ~ "}" ~ ";"? }
+
+// =============================================================================
+// Key-value pairs: key = value
+// =============================================================================
+
+// Standard assignment with one value or a comma-separated array.
+// Example: kernel.root = "UUID-1234"; or kernel.console = tty0, ttyS0
+// Array elements are separate value nodes for the Rust parser.
+// End at a semicolon, newline, closing brace or end of input. Lookahead (&)
+// leaves the newline or closing brace for the enclosing statement or block.
 pair = { key ~ "=" ~ value ~ ("," ~ value)* ~ (";" | &NEWLINE | &"}" | &EOI) }
+
+// =============================================================================
+// Boolean keys (flags without values)
+// =============================================================================
+
+// A key without an assignment acts as a boolean flag.
+// Example: init.splash or init { splash }
+// The required statement end prevents a flag from consuming the key of an
+// assignment or block. The Rust parser distinguishes a flag from key=.
 flag = { key ~ (";" | &NEWLINE | &"}" | &EOI) }
+
+// =============================================================================
+// Keys
+// =============================================================================
+
+// Dotted key like kernel.module.param (atomic - no whitespace between parts)
 key = @{ identifier ~ ("." ~ identifier)* }
+
+// Single identifier component (atomic)
 identifier = @{ (ASCII_ALPHANUMERIC | "_" | "-")+ }
+
+// =============================================================================
+// Values
+// =============================================================================
+
+// One array element. Comma separation is handled by the pair rule.
+// Keep this node so the Rust parser receives each value separately.
 value = { double | single | unquoted }
+
+// =============================================================================
+// String literals
+// =============================================================================
+
+// Both quote styles can contain line breaks.
+// Double-quoted string (atomic), with literal backslashes.
+// Example: "hello world" or "path\to\file"
+// A backslash does not escape a quote; the next double quote ends the string.
 double = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+
+// Single-quoted string - no escape processing per bootconfig spec (atomic)
+// Example: 'hello world'
 single = @{ "'" ~ (!"'" ~ ANY)* ~ "'" }
+
+// Unquoted value - stops at a comma, semicolon, newline, comment, closing brace
+// or quote. Spaces and tabs within the value are preserved; surrounding
+// whitespace is trimmed by the Rust parser. Zero characters allow key=.
+// This also permits empty array elements, as in key=a,,b.
+// Example: simple_value or UUID-1234-5678
 unquoted = @{ (!("," | ";" | NEWLINE | "#" | "}" | "\"" | "'") ~ ANY)* }
+
+// =============================================================================
+// Whitespace and comments (implicit - automatically skipped)
+// =============================================================================
+
+// Spaces, tabs and carriage returns are skipped between non-atomic tokens.
+// Use LF or CRLF between statements; a bare CR is skipped here.
+// Atomic rules handle their own whitespace, including spaces inside values.
 WHITESPACE = _{ " " | "\t" | "\r" }
+
+// Shell-style comments
 COMMENT = _{ "#" ~ (!NEWLINE ~ ANY)* }
