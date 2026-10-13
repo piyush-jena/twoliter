@@ -213,13 +213,16 @@ pub fn parse_text(text: &str) -> Result<BootConfig> {
     // Bound recursive grammar processing before Pest builds the parse tree.
     // Quotes and comments may contain literal braces.
     let (mut quote, mut comment, mut depth) = (None, false, 0usize);
-    for byte in text.bytes() {
+    let mut bytes = text.bytes();
+    while let Some(byte) = bytes.next() {
         if let Some(delimiter) = quote {
-            if byte == delimiter {
+            if delimiter == b'"' && byte == b'\\' {
+                bytes.next();
+            } else if byte == delimiter {
                 quote = None;
             }
         } else if comment {
-            comment = byte != b'\n';
+            comment = !matches!(byte, b'\n' | b'\r');
         } else {
             match byte {
                 b'"' | b'\'' => quote = Some(byte),
@@ -281,5 +284,26 @@ mod tests {
             "z.x=first z.y=last a=middle "
         );
         assert!(parse_text("kernel.x=a\nkernel.x=b").is_err());
+    }
+
+    #[test]
+    fn nesting_guard_tracks_quotes_and_comments() {
+        for prefix in [
+            "kernel.x=\"a\\\"b\"\n",
+            "kernel.x=\"a\\\\\"\n",
+            "kernel.x='a\\'\n",
+            "# comment\r",
+        ] {
+            let allowed = format!("{prefix}{}{}", "a {".repeat(64), "}".repeat(64));
+            assert!(parse_text(&allowed).is_ok(), "{prefix:?}");
+            let excessive = format!("{prefix}{}{}", "a {".repeat(65), "}".repeat(65));
+            assert!(
+                parse_text(&excessive)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("block nesting exceeds 64"),
+                "{prefix:?}"
+            );
+        }
     }
 }
