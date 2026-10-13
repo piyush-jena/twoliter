@@ -6,7 +6,11 @@ use std::collections::BTreeSet;
 /// Merge single-line bootconfig drop-ins before generating binary bootconfig.
 ///
 /// `kernel.module_blacklist` contributions are combined into one quoted,
-/// comma-separated value, with module names sorted and deduplicated. Other
+/// comma-separated value, with module names sorted and deduplicated.
+/// Linux also accepts `module-blacklist`: its parameter matcher treats hyphens
+/// and underscores alike (Linux v6.12, kernel/params.c, parameq).
+/// Merge both spellings so neither can override the other's contributions,
+/// and always emit the documented `kernel.module_blacklist` spelling. Other
 /// assignments retain their order and Linux's duplicate-assignment checks.
 /// Module names must be nonempty ASCII letters, digits or underscores; empty
 /// contributions cannot erase another package's blacklist.
@@ -94,7 +98,7 @@ mod tests {
             "kernel.module_blacklist = i8042\n",
             "kernel.fips = 1\n",
             "kernel.module_blacklist = binfmt_misc\n",
-            "kernel.module-blacklist = \"i8042,binfmt_misc\"\n",
+            "kernel.module_blacklist = \"i8042,binfmt_misc\"\n",
             "kernel.sysctl.kernel.kexec_load_disabled = 1\n",
             "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\n",
             "init.systemd.unit = fipscheck.target\n",
@@ -111,6 +115,20 @@ mod tests {
             )
         );
         assert_eq!(merge_dropins(&merged).unwrap(), merged);
+    }
+
+    #[test]
+    fn merges_kernel_parameter_alias_without_losing_contributions() {
+        let merged = merge_dropins(concat!(
+            "kernel.module-blacklist = i8042\n",
+            "kernel.module_blacklist = binfmt_misc\n",
+        ))
+        .unwrap();
+        assert_eq!(merged, "kernel.module_blacklist = \"binfmt_misc,i8042\"\n");
+        assert_eq!(
+            format_params(&parse_text(&merged).unwrap().kernel).unwrap(),
+            "module_blacklist=binfmt_misc,i8042 "
+        );
     }
 
     #[test]
