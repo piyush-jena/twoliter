@@ -2,7 +2,7 @@
 """Generate fixed two-bank expectations without invoking pcrsys.
 
 Run with Python 3 and redirect stdout to bank-vectors.json. The PE fixtures match
-pe.rs::tests::build_test_uki; the hashing oracle uses hashlib and explicit
+pe.rs::tests::{build_test_uki, build_test_shim}; the hashing oracle uses hashlib and explicit
 Authenticode byte ranges, not the Rust authenticode or prediction libraries.
 """
 
@@ -38,6 +38,46 @@ def pe_image(machine, sections):
         ]:
             struct.pack_into("<I", image, header + field, value)
         image += data + bytes(size - len(data))
+    return bytes(image)
+
+
+def shim_image():
+    """The existing shim fixture, including its COFF string-table overlay."""
+    image = bytearray(0xA00)
+    image[:2] = b"MZ"
+    image[0x40:0x44] = b"PE\0\0"
+    for offset, value in [
+        (0x44, 0xAA64), (0x46, 3), (0x54, 0xF0),
+        (0x56, 0x22), (0x58, 0x20B), (0x9C, 10),
+    ]:
+        struct.pack_into("<H", image, offset, value)
+    image[0x5A] = 1
+    for offset, value in [
+        (0x3C, 0x40), (0x4C, 0x800), (0x78, 0x1000), (0x7C, 0x200),
+        (0x80, 1), (0x88, 1), (0x90, 0x5000), (0x94, 0x200), (0xC4, 16),
+        (0x404, 12), (0x600, 7), (0x608, 16), (0x800, 28),
+    ]:
+        struct.pack_into("<I", image, offset, value)
+    for index, (name, virtual_size, characteristics) in enumerate([
+        (b".text", 0x10, 0x60000020),
+        (b"/4", 0x40, 0x40000040),
+        (b"/15", 0x30, 0x40000040),
+    ]):
+        header = 0x148 + 40 * index
+        image[header:header + len(name)] = name
+        for field, value in [
+            (8, virtual_size), (12, (index + 1) * 0x1000),
+            (16, 0x200), (20, (index + 1) * 0x200), (36, characteristics),
+        ]:
+            struct.pack_into("<I", image, header + field, value)
+    for offset, data in [
+        (0x200, b"\xcc" * 16),
+        (0x40C, b"sbat,1,2024010900\nshim,4\ngrub,3\n"),
+        (0x610, bytes.fromhex("30820010020100")),
+        (0x804, b".sbatlevel\0"),
+        (0x80F, b".vendor_cert\0"),
+    ]:
+        image[offset:offset + len(data)] = data
     return bytes(image)
 
 
@@ -123,6 +163,13 @@ def predictions(machine, algorithm):
         variable(SHIM, "SbatLevel", b"sbat,1,2024010900\nshim,4\ngrub,3\n"),
         variable(SHIM, "MokListRT", SHIM + vendor),
     ]
+    shim = shim_image()
+    # Contiguous sections followed by the COFF overlay: all bytes after the
+    # security directory are hashed, including the overlay and its padding.
+    shim_digest = hash_fn(shim[:0x98] + shim[0x9C:0xE8] + shim[0xF0:]).digest()
+    grub_pcr4 = replay([b"Calling EFI Application from Boot Option", bytes(4)])
+    for _ in range(3):
+        grub_pcr4 = hash_fn(grub_pcr4 + shim_digest).digest()
     return {
         "authenticode": pe_digest.hex(),
         "uki": {
@@ -132,6 +179,7 @@ def predictions(machine, algorithm):
             "11": phases(replay(section_events)),
         },
         "grub": {
+            "4": [grub_pcr4.hex()],
             "7": [replay(grub_policy).hex()],
             "9": [replay([b"BOOT_IMAGE=/vmlinuz -- x\n"]).hex()],
             "11": phases(zero),

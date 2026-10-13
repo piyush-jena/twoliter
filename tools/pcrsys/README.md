@@ -77,6 +77,9 @@ instance-specific firmware configuration and runtime OS settings.
 
 Platform differences affect PCR 0, 1, 4, 5, and 7 calculations due to firmware behavior variations.
 
+SHA-384 validation currently covers AWS only. The VMware and metal SHA-384
+branches have no platform-specific expected-value tests or runtime qualification.
+
 ## Input Requirements
 
 ### efi-vars.json
@@ -109,6 +112,10 @@ for x86_64 and aarch64. The GPT image must contain one fallback executable at
 `/EFI/BOOT/boot{aa64,x64}.efi` on the ESP, with nonempty `.linux`, `.osrel`,
 `.cmdline`, and `.uname` sections. GRUB boot partitions must be absent; PRIVATE
 is not read.
+
+Direct UKI prediction on VMware or metal returns
+`direct UKI prediction supports AWS only`. Secure Boot UKI image builds and
+repacks for those platforms fail at the prediction step.
 
 Predictions include PCRs 0, 2-7, and 9-15. PCR 4 measures the whole UKI,
 PCR 7 uses the Secure Boot policy without shim events, PCR 9 measures EFI

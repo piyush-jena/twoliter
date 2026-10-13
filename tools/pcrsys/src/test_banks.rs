@@ -26,7 +26,7 @@ fn uki_and_grub_match_independent_bank_vectors(arch: &str, machine: u16) {
         hex::encode(authenticode.sha384),
         vectors[arch]["sha384"]["authenticode"]
     );
-    let uki_records = [
+    let uki_records = vec![
         pcrs::pcr4::predict(&ctx),
         pcrs::pcr7::predict(&ctx),
         pcrs::pcr9::predict(&ctx),
@@ -39,10 +39,13 @@ fn uki_and_grub_match_independent_bank_vectors(arch: &str, machine: u16) {
         .efi_vars(&vars)
         .partitions(&mock.layout)
         .shim(&shim)
+        .grub(&shim)
+        .vmlinuz(&shim)
         .grub_cfg(b"linux ($root)/vmlinuz -- x")
         .bootconfig(b"\0\0\0\0\x04\0\0\0\0\0\0\0#BOOTCONFIG\n")
         .build();
-    let grub_records = [
+    let grub_records = vec![
+        pcrs::pcr4::predict(&ctx),
         pcrs::pcr7::predict(&ctx),
         pcrs::pcr9::predict(&ctx),
         pcrs::pcr11::predict(&ctx),
