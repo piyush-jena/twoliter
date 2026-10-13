@@ -108,7 +108,7 @@ impl Node {
 
 fn process(pair: Pair<'_, Rule>, prefix: &str, tree: &mut Node) -> Result<()> {
     match pair.as_rule() {
-        Rule::pair | Rule::flag | Rule::block => {
+        Rule::pair | Rule::bool_key | Rule::block => {
             let rule = pair.as_rule();
             let mut inner = pair.into_inner();
             let name = inner.next().expect("grammar requires key").as_str();
@@ -125,9 +125,10 @@ fn process(pair: Pair<'_, Rule>, prefix: &str, tree: &mut Node) -> Result<()> {
                         process(child, &key, tree)?;
                     }
                 }
-                Rule::flag => tree.insert(&key, Some(vec![None]))?,
+                Rule::bool_key => tree.insert(&key, Some(vec![None]))?,
                 Rule::pair => {
                     let values = inner
+                        .flat_map(Pair::into_inner)
                         .map(|value| {
                             let value = value.as_str().trim();
                             let value = value
