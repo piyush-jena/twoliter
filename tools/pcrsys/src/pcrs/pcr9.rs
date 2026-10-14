@@ -10,6 +10,7 @@
 use crate::error::Result;
 use crate::predict::{extend_pcr_string, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL};
 use bootconfig::predict_grub_cmdline as predict_cmdline;
+use snafu::ResultExt;
 
 /// Predict PCR 9 value.
 ///
