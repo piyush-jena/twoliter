@@ -127,6 +127,7 @@ fn rejects_empty_or_malformed_blacklist_assignments() {
         "kernel.module_blacklist += binfmt_misc",
         "kernel.module_blacklist",
         "kernel { module_blacklist = i8042 }",
+        "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = i8042",
     ] {
         assert!(merge_blacklisted_modules(input).is_err(), "{input}");
     }
