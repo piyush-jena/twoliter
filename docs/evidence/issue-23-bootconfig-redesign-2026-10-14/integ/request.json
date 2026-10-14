@@ -1,0 +1,9 @@
+{
+  "target": "twoliter",
+  "arch": "x86_64",
+  "reason": "Recheck after correcting the CLI fixture to expect the merged blacklist last; production code unchanged.",
+  "testing": "Standalone PR5 full Twoliter make integ without PR6 UKI integration.",
+  "last_change": "33dbf4b updates tools/ukisys/tests/cmdline.rs expectation: systemd.mask before module_blacklist.",
+  "operation": "integ",
+  "twoliter_revision": "33dbf4bab8ea5810803f05cb7c5d184041be6cf0"
+}

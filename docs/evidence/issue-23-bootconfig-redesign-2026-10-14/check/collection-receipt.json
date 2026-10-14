@@ -1,0 +1,28 @@
+{
+  "input_sha256": "f288bf5e52896c2117ad94458c25f11a667875a2b92c26f97000c0338730ff10",
+  "remote_result": {
+    "request_id": "83c159d7-2deb-486b-b484-82510c7ede0a",
+    "input_sha256": "f288bf5e52896c2117ad94458c25f11a667875a2b92c26f97000c0338730ff10",
+    "exit_code": 0,
+    "error": null,
+    "wall_clock_s": 708.1687769889832,
+    "files": [
+      {
+        "path": "check-result.json",
+        "size": 2457,
+        "sha256": "29fefa86896d1dead68af5930ceadc0e12f3ee1c30537a6459f5cc77abca0025",
+        "mode": 420
+      },
+      {
+        "path": "source-provenance.json",
+        "size": 299,
+        "sha256": "14d7aa428b632ccd0500247164dd649d2a3d7b1378f34783dccd725a7651c252",
+        "mode": 384
+      }
+    ],
+    "log_sha256": "bb94c948574e82e6f4e66df6243412886deb7f5a03646e4ac6be154380010329"
+  },
+  "verified_at": 1791950062.13764,
+  "bucket": "symphony-build-533267423195-us-east-2",
+  "prefix": "outputs/83c159d7-2deb-486b-b484-82510c7ede0a"
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "job_directory": "/home/fedora/Repositories/symphony/.symphony/builds/b9eea637-6454-4103-be28-f3082de9aa08",
+    "pid": 3747077,
+    "request": {
+      "id": "b9eea637-6454-4103-be28-f3082de9aa08",
+      "issue": 23,
+      "member": "twoliter",
+      "request": {
+        "arch": "x86_64",
+        "last_change": "43a412a moves the retained-form check before canonical append and adds one mixed block/assignment fixture.",
+        "operation": "check",
+        "reason": "Post-review revalidation after accepted F1 fix: reject retained block-form blacklists before canonical append.",
+        "target": "twoliter",
+        "testing": "PR5 formatting, release workspace tests and strict all-target Clippy, including the mixed blacklist regression.",
+        "twoliter_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7"
+      }
+    }
+  },
+  {
+    "job_directory": "/home/fedora/Repositories/symphony/.symphony/builds/e23181d7-cedb-4607-9107-94923b6c7c33",
+    "pid": 3747138,
+    "request": {
+      "id": "e23181d7-cedb-4607-9107-94923b6c7c33",
+      "issue": 23,
+      "member": "twoliter",
+      "request": {
+        "arch": "x86_64",
+        "last_change": "43a412a moves the retained-form check before canonical append and adds one mixed block/assignment fixture.",
+        "operation": "integ",
+        "reason": "Post-review revalidation after accepted F1 fix: reject retained block-form blacklists before canonical append.",
+        "target": "twoliter",
+        "testing": "Full Twoliter make integ at the reviewed PR5 F1-fix revision.",
+        "twoliter_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7"
+      }
+    }
+  }
+]

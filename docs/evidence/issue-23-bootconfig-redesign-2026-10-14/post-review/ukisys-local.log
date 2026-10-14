@@ -1,0 +1,25 @@
+   Compiling bootconfig v0.1.0 (/tmp/symphony-bootconfig-redesign-check)
+   Compiling ukisys v0.1.0 (/tmp/symphony-ukisys-redesign-check)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running unittests /home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/twoliter/tools/ukisys/src/main.rs (/tmp/symphony-ukisys-redesign-check/target/debug/deps/ukisys-90e7131b2d6fb30a)
+
+running 8 tests
+test pe::tests::read_reports_file_too_large_on_offset_overflow ... ok
+test pe::tests::parses_synthetic_section_table ... ok
+test pe::tests::read_reports_truncated_file_not_file_too_large ... ok
+test pe::tests::rejects_non_pe32_plus ... ok
+test pe::tests::rejects_wrong_trailing_sections ... ok
+test pe::tests::truncates_trailing_sections_and_patches_headers ... ok
+test pe::tests::security_directory_roundtrip ... ok
+test pe::tests::write_reports_file_too_large_on_offset_overflow ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running /home/fedora/Repositories/symphony/stages/23-shared-bootconfig/twoliter/tools/ukisys/tests/cmdline.rs (/tmp/symphony-ukisys-redesign-check/target/debug/deps/cmdline-e4965d3388d13d14)
+
+running 2 tests
+test invalid_input_does_not_publish_output ... ok
+test merge_bootconfig_combines_dropins_in_place_and_preserves_failed_input ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+

@@ -1,0 +1,22 @@
+{
+  "request_id": "b9eea637-6454-4103-be28-f3082de9aa08",
+  "input_sha256": "ccd7302f6899fd7041bafd71bee6abf9c0c0a126932d8d8c0053da9002dfc229",
+  "exit_code": 0,
+  "error": null,
+  "wall_clock_s": 717.6406588554382,
+  "files": [
+    {
+      "path": "check-result.json",
+      "size": 2457,
+      "sha256": "febca243c01359fa999a52859e59acfdfcb4d1ddec166b29200cd80c1bae903f",
+      "mode": 420
+    },
+    {
+      "path": "source-provenance.json",
+      "size": 299,
+      "sha256": "037543041396119f179afd0925e6205b5c6991a85379c940abb80d894dfb14dd",
+      "mode": 384
+    }
+  ],
+  "log_sha256": "cf6262c12022913a382eea31504c78f678f326a16d0d5290b639d85582b2b691"
+}

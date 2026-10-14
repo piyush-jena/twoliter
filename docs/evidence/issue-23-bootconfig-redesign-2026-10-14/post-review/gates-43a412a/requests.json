@@ -1,0 +1,30 @@
+[
+  {
+    "issue": 23,
+    "id": "b9eea637-6454-4103-be28-f3082de9aa08",
+    "member": "twoliter",
+    "request": {
+      "target": "twoliter",
+      "arch": "x86_64",
+      "operation": "check",
+      "twoliter_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+      "reason": "Post-review revalidation after accepted F1 fix: reject retained block-form blacklists before canonical append.",
+      "testing": "PR5 formatting, release workspace tests and strict all-target Clippy, including the mixed blacklist regression.",
+      "last_change": "43a412a moves the retained-form check before canonical append and adds one mixed block/assignment fixture."
+    }
+  },
+  {
+    "issue": 23,
+    "id": "e23181d7-cedb-4607-9107-94923b6c7c33",
+    "member": "twoliter",
+    "request": {
+      "target": "twoliter",
+      "arch": "x86_64",
+      "operation": "integ",
+      "twoliter_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+      "reason": "Post-review revalidation after accepted F1 fix: reject retained block-form blacklists before canonical append.",
+      "testing": "Full Twoliter make integ at the reviewed PR5 F1-fix revision.",
+      "last_change": "43a412a moves the retained-form check before canonical append and adds one mixed block/assignment fixture."
+    }
+  }
+]

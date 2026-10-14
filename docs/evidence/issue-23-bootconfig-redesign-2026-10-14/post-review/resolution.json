@@ -1,0 +1,16 @@
+{
+  "finding": "F1",
+  "status": "addressed",
+  "review_rounds": 1,
+  "pr5_fix_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+  "pr6_fix_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "final_source_gates_passed": true,
+  "release_regression_passed": true,
+  "release_valid_controls_byte_equal": 5,
+  "replayed_images": 10,
+  "generated_matches": 256,
+  "separate_grub_pcr9_matches": 12,
+  "post_fix_image_rebuilds": 0,
+  "post_fix_boots": 0
+}

@@ -1,0 +1,9 @@
+$ /tmp/symphony-ukisys-redesign-check/target/debug/ukisys cmdline --bootconfig /home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/implementation/invalid-bootconfig.bin --kernel-args quiet --init-args '' --output /home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/implementation/unexpected-output
+Error: Failed to decode bootconfig *
+
+Caused by this error:
+  1: Bootconfig data too short: 18 bytes
+
+NOTE: Some redundant information has been removed from the lines marked with *. Set SNAFU_RAW_ERROR_MESSAGES=1 to disable this behavior.
+
+exit=1

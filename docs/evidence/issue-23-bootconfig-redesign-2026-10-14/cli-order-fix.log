@@ -1,0 +1,15 @@
+$ cargo test --offline --test cmdline -- --skip rpm2img_wires_plain_and_fips_bootconfig_before_uki_assembly
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running /home/fedora/Repositories/symphony/stages/23-shared-bootconfig/twoliter/tools/ukisys/tests/cmdline.rs (target/debug/deps/cmdline-e4965d3388d13d14)
+
+running 2 tests
+test invalid_input_does_not_publish_output ... ok
+test merge_bootconfig_combines_dropins_in_place_and_preserves_failed_input ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+exit=0
+$ bash /home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/twoliter/twoliter/embedded/tests/test_uki_cmdline.sh /home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/twoliter/twoliter/embedded /home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/twoliter/tools/ukisys/tests/fixtures /tmp/symphony-ukisys-redesign-check/target/debug/ukisys /tmp/symphony-cli-order-check-25mp_pfx
+
+exit=0

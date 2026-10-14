@@ -1,0 +1,69 @@
+$ cargo test --offline --target-dir /tmp/symphony-bootconfig-redesign-check/target
+     Locking 18 packages to latest compatible versions
+      Adding snafu v0.8.9 (available: v0.9.2)
+   Compiling bootconfig v0.1.0 (/tmp/symphony-f1-bootconfig-check)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.87s
+     Running unittests /home/fedora/Repositories/symphony/stages/23-shared-bootconfig/twoliter/tools/bootconfig/src/lib.rs (/tmp/symphony-bootconfig-redesign-check/target/debug/deps/bootconfig-589e0586c206a627)
+
+running 45 tests
+test grub_cmdline::tests::test_repair_quotes::test_case_1_no_quotes_unchanged ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_2_no_equals_unchanged ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_3_simple_quoted_value ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_5_mixed_quoted_and_unquoted ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_6_dm_mod_create_style ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_7_multiple_quoted_values ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_4_quoted_value_with_spaces ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_9_empty_string ... ok
+test grub_cmdline::tests::test_repair_quotes::test_case_8_quoted_at_start ... ok
+test parsers::grub::tests::test_comments::test_case_2_inline_comment ... ok
+test parsers::grub::tests::test_line_continuation::test_case_1_line_continuation ... ok
+test parsers::grub::tests::test_kernel_path::test_case_2_grub_device_set ... ok
+test parsers::grub::tests::test_comments::test_case_1_comment_line ... ok
+test parsers::grub::tests::test_kernel_path::test_case_1_grub_device_unset ... ok
+test parsers::grub::tests::test_linux_args::test_case_3_quoted_value_arg ... ok
+test parsers::grub::tests::test_linux_args::test_case_2_multiple_args ... ok
+test parsers::grub::tests::test_linux_args::test_case_4_separator ... ok
+test parsers::grub::tests::test_menuentry::test_case_1_simple_menuentry ... ok
+test parsers::grub::tests::test_linux_args::test_case_1_simple_arg ... ok
+test parsers::grub::tests::test_linux_args::test_case_5_args_with_separator ... ok
+test parsers::grub::tests::test_parse_full_config ... ok
+test parsers::grub::tests::test_menuentry::test_case_2_menuentry_with_option ... ok
+test parsers::grub::tests::test_line_continuation::test_case_2_continuation_with_var ... ok
+test parsers::grub::tests::test_set_statement::test_case_1_unquoted_value ... ok
+test parsers::grub::tests::test_set_statement::test_case_3_quoted_with_spaces ... ok
+test parsers::grub::tests::test_variable_resolution::test_case_1_bare_variable ... ok
+test parsers::grub::tests::test_set_statement::test_case_2_quoted_value ... ok
+test parsers::grub::tests::test_variable_resolution::test_case_2_braced_variable ... ok
+test parsers::grub::tests::test_variable_resolution::test_case_3_unknown_variable ... ok
+test parsers::grub::tests::test_variable_resolution::test_case_4_nested_variable ... ok
+test parsers::grub::tests::test_variable_resolution::test_case_5_multiple_variables ... ok
+test test_lib::binary_trailer_is_required_and_checked ... ok
+test test_lib::flag_with_children_matches_linux_namespace_handling ... ok
+test test_lib::merges_kernel_parameter_alias_without_losing_contributions ... ok
+test uki_cmdline::tests::image_builder_arguments_are_used_without_an_extra_validation_pass ... ok
+test test_lib::preserves_other_arrays_and_namespaces ... ok
+test uki_cmdline::tests::load_options_normalize_whitespace_and_include_utf16_nul ... ok
+test test_lib::text_preserves_tree_order_and_replaces_duplicate_values ... ok
+test test_lib::combines_package_blacklists_into_one_kernel_argument ... ok
+test test_lib::syntax_error_keeps_the_parser_diagnostic ... ok
+test test_lib::rejects_empty_or_malformed_blacklist_assignments ... ok
+test uki_cmdline::tests::uki_arguments_keep_kernel_and_init_namespaces_separate ... ok
+test uki_cmdline::tests::section_decoding_accepts_only_trailing_nul_padding ... ok
+test test_lib::text_parser_leaves_size_and_character_policy_to_callers ... ok
+test test_lib::grammar_handles_quotes_comments_and_nested_blocks ... ok
+
+test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests bootconfig
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+exit=0
+$ cargo clippy --offline --target-dir /tmp/symphony-bootconfig-redesign-check/target --all-targets -- -D warnings
+    Checking bootconfig v0.1.0 (/tmp/symphony-f1-bootconfig-check)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+
+exit=0

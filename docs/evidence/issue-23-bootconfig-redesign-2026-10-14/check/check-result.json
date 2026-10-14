@@ -1,0 +1,92 @@
+{
+  "operation": "check",
+  "target": "twoliter",
+  "revision": "33dbf4bab8ea5810803f05cb7c5d184041be6cf0",
+  "arch": "x86_64",
+  "started_at": "2026-10-14T03:42:25.953412+00:00",
+  "steps": [
+    {
+      "argv": [
+        "rustc",
+        "-Vv"
+      ],
+      "cwd": "/work/symphony-check-pwuheyhv/source",
+      "started_at": "2026-10-14T03:42:26.105744+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T03:42:26.116559+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "-V"
+      ],
+      "cwd": "/work/symphony-check-pwuheyhv/source",
+      "started_at": "2026-10-14T03:42:26.116571+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T03:42:26.121389+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "clippy",
+        "-V"
+      ],
+      "cwd": "/work/symphony-check-pwuheyhv/source",
+      "started_at": "2026-10-14T03:42:26.121405+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T03:42:26.139818+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "cwd": "/work/symphony-check-pwuheyhv/source",
+      "started_at": "2026-10-14T03:42:26.139835+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T03:42:26.478655+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--release",
+        "--locked"
+      ],
+      "cwd": "/work/symphony-check-pwuheyhv/source",
+      "started_at": "2026-10-14T03:42:26.478685+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T03:52:43.032113+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/work/symphony-check-pwuheyhv/source",
+      "started_at": "2026-10-14T03:52:43.032137+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T03:54:08.241814+00:00"
+    }
+  ],
+  "status": "succeeded",
+  "environment": {
+    "CARGO_BUILD_JOBS": "32",
+    "RUST_TEST_THREADS": "2",
+    "CARGO_TARGET_DIR": "/work/symphony-check-pwuheyhv/target",
+    "RUSTUP_TOOLCHAIN": "1.97.1",
+    "RUSTC_BOOTSTRAP": "1",
+    "RUSTC": "/opt/symphony/rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustc",
+    "RUSTDOC": "/opt/symphony/rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustdoc"
+  },
+  "rust_toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "ended_at": "2026-10-14T03:54:09.573397+00:00",
+  "exit_code": 0
+}

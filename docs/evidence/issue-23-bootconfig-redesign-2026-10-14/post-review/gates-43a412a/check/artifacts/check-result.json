@@ -1,0 +1,92 @@
+{
+  "operation": "check",
+  "target": "twoliter",
+  "revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+  "arch": "x86_64",
+  "started_at": "2026-10-14T04:43:02.977579+00:00",
+  "steps": [
+    {
+      "argv": [
+        "rustc",
+        "-Vv"
+      ],
+      "cwd": "/work/symphony-check-l492ylek/source",
+      "started_at": "2026-10-14T04:43:03.133663+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T04:43:03.144147+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "-V"
+      ],
+      "cwd": "/work/symphony-check-l492ylek/source",
+      "started_at": "2026-10-14T04:43:03.144157+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T04:43:03.148827+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "clippy",
+        "-V"
+      ],
+      "cwd": "/work/symphony-check-l492ylek/source",
+      "started_at": "2026-10-14T04:43:03.148844+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T04:43:03.168200+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "cwd": "/work/symphony-check-l492ylek/source",
+      "started_at": "2026-10-14T04:43:03.168217+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T04:43:03.504098+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--release",
+        "--locked"
+      ],
+      "cwd": "/work/symphony-check-l492ylek/source",
+      "started_at": "2026-10-14T04:43:03.504117+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T04:53:28.450835+00:00"
+    },
+    {
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/work/symphony-check-l492ylek/source",
+      "started_at": "2026-10-14T04:53:28.450860+00:00",
+      "exit_code": 0,
+      "ended_at": "2026-10-14T04:54:54.822318+00:00"
+    }
+  ],
+  "status": "succeeded",
+  "environment": {
+    "CARGO_BUILD_JOBS": "32",
+    "RUST_TEST_THREADS": "2",
+    "CARGO_TARGET_DIR": "/work/symphony-check-l492ylek/target",
+    "RUSTUP_TOOLCHAIN": "1.97.1",
+    "RUSTC_BOOTSTRAP": "1",
+    "RUSTC": "/opt/symphony/rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustc",
+    "RUSTDOC": "/opt/symphony/rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustdoc"
+  },
+  "rust_toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "ended_at": "2026-10-14T04:54:56.196899+00:00",
+  "exit_code": 0
+}
