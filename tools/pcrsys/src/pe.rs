@@ -230,19 +230,10 @@ impl<'a> UkiImage<'a> {
     }
 
     pub(crate) fn cmdline(&self) -> Result<&str> {
-        let data = self.section(".cmdline");
-        let end = data.iter().position(|b| *b == 0).unwrap_or(data.len());
-        ensure_whatever!(
-            data[end..].iter().all(|b| *b == 0),
-            "UKI command line has data after NUL"
-        );
-        let cmdline =
-            std::str::from_utf8(&data[..end]).whatever_context("UKI command line is not UTF-8")?;
-        ensure_whatever!(
-            !cmdline.is_empty() && cmdline.len() < 2048,
-            "unsupported UKI command-line length"
-        );
-        // These disable or add inputs to the kernel's EFI initrd load path.
+        let cmdline = bootconfig::parse_uki_cmdline(self.section(".cmdline"))
+            .whatever_context("failed to parse UKI command line")?;
+        // Decoding is shared, but these overrides change the EFI initrd inputs
+        // supported by this predictor and must remain a caller policy.
         ensure_whatever!(
             !cmdline
                 .replace('"', "")
@@ -547,5 +538,48 @@ pub(crate) mod tests {
         image[0x1f4..0x1f8].copy_from_slice(&4096u32.to_le_bytes());
         let error = UkiImage::parse(&image, 0x8664).err().unwrap();
         assert!(error.to_string().contains("overlapping"));
+    }
+
+    #[test_case::test_case(b"quiet --"; "without_nul")]
+    #[test_case::test_case(b"quiet --\0\0"; "nul_padding")]
+    fn uki_cmdline_decodes_section(data: &[u8]) {
+        let uki = UkiImage {
+            image: &[],
+            sections: BTreeMap::from([(".cmdline", data)]),
+        };
+        assert_eq!(uki.cmdline().unwrap(), "quiet --");
+    }
+
+    #[test_case::test_case(b"quiet\0hidden", "UKI command line has data after NUL"; "data_after_nul")]
+    #[test_case::test_case(b"\xff", "Invalid UTF-8 in UKI command line"; "invalid_utf8")]
+    #[test_case::test_case(b"", "Unsupported UKI command-line length: 0"; "empty")]
+    #[test_case::test_case(&[b'x'; 2048], "Unsupported UKI command-line length: 2048"; "kernel_buffer_limit")]
+    fn uki_cmdline_retains_shared_error_source(data: &[u8], diagnostic: &str) {
+        use std::error::Error;
+
+        let uki = UkiImage {
+            image: &[],
+            sections: BTreeMap::from([(".cmdline", data)]),
+        };
+        let error = uki.cmdline().unwrap_err();
+        assert_eq!(error.to_string(), "failed to parse UKI command line");
+        let source = error.source().unwrap();
+        assert!(source.is::<bootconfig::Error>());
+        assert!(source.to_string().starts_with(diagnostic));
+    }
+
+    #[test_case::test_case(b"noinitrd --"; "noinitrd")]
+    #[test_case::test_case(b"initrd=other --"; "initrd_path")]
+    #[test_case::test_case(b"efi=nochunk --"; "efi")]
+    #[test_case::test_case(b"\"efi=nochunk\" --"; "quoted_override")]
+    fn uki_cmdline_rejects_predictor_overrides(data: &[u8]) {
+        let uki = UkiImage {
+            image: &[],
+            sections: BTreeMap::from([(".cmdline", data)]),
+        };
+        assert_eq!(
+            uki.cmdline().unwrap_err().to_string(),
+            "unsupported EFI/initrd command-line override"
+        );
     }
 }

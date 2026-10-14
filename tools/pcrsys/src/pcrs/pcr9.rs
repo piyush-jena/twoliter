@@ -29,7 +29,8 @@ pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
     if let Some(uki) = ctx.uki {
         // Linux EFI stub measures LoadOptions, then the complete loaded initrd.
         // The supported stub supplies only the generated os-release CPIO archive.
-        let options = bootconfig::uki_load_options(uki.cmdline()?)?;
+        let options = bootconfig::uki_load_options(uki.cmdline()?)
+            .whatever_context("failed to encode UKI load options")?;
         let pcr = extend_pcr_data(&PCR_INIT_VAL, &options);
         let pcr = extend_pcr_data(&pcr, &osrel_archive(uki.section(".osrel"))?);
         return Ok(Some((PcrIndex::Pcr9, PcrRecord::new(pcr))));
@@ -43,7 +44,8 @@ pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
         return Ok(None);
     }
 
-    let mut cmdline = predict_cmdline(ctx.grub_cfg, ctx.bootconfig, Some(ctx.boot_partuuid))?;
+    let mut cmdline = predict_cmdline(ctx.grub_cfg, ctx.bootconfig, Some(ctx.boot_partuuid))
+        .whatever_context("failed to predict GRUB command line")?;
     cmdline.push('\n');
     let pcr9 = extend_pcr_string(&PCR_INIT_VAL, &cmdline);
     Ok(Some((PcrIndex::Pcr9, PcrRecord::new(pcr9))))
@@ -201,6 +203,52 @@ mod tests {
         let bootconfig = make_bootconfig("");
         let result = predict_cmdline(grub_cfg, &bootconfig, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_predict_retains_bootconfig_error_source() {
+        use crate::predict::test_support::MockCtx;
+        use std::error::Error;
+
+        let m = MockCtx::new();
+        let ctx = PcrContext::builder()
+            .platform(crate::platform::Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .partitions(&m.layout)
+            .grub_cfg(b"linux ($root)/vmlinuz -- x".as_slice())
+            .bootconfig(b"invalid bootconfig".as_slice())
+            .build();
+        let error = predict(&ctx).unwrap_err();
+        assert_eq!(error.to_string(), "failed to predict GRUB command line");
+        assert!(matches!(
+            error.source().unwrap().downcast_ref::<bootconfig::Error>(),
+            Some(bootconfig::Error::BinaryTooShort { .. })
+        ));
+    }
+
+    #[test]
+    fn test_predict_retains_load_options_error_source() {
+        use crate::pe::{tests::build_test_uki, UkiImage};
+        use crate::predict::test_support::MockCtx;
+        use std::error::Error;
+
+        let mut image = build_test_uki(0x8664);
+        // The fixture's first payload is .cmdline at byte 1024. Valid UTF-8
+        // survives section decoding, but non-ASCII LoadOptions are unsupported.
+        image[1024..1026].copy_from_slice("é".as_bytes());
+        let uki = UkiImage::parse(&image, 0x8664).unwrap().unwrap();
+        let m = MockCtx::new();
+        let ctx = PcrContext::builder()
+            .platform(crate::platform::Platform::Aws)
+            .efi_vars(&m.efi_vars)
+            .uki(&uki)
+            .build();
+        let error = predict(&ctx).unwrap_err();
+        assert_eq!(error.to_string(), "failed to encode UKI load options");
+        assert!(matches!(
+            error.source().unwrap().downcast_ref::<bootconfig::Error>(),
+            Some(bootconfig::Error::InvalidLoadOptions)
+        ));
     }
 
     #[test]
