@@ -1,0 +1,11 @@
+{
+  "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "bottlerocket_revision": "5cfeacd31949b6f68c4ddae79978eab6c33bb9d1",
+  "jobs": {
+    "check": "db4488ec-2f2c-4b2e-a2eb-55eba2d4879c",
+    "integ": "262e26dd-c593-4914-8380-e37ba38b03ab",
+    "build": "5ad7e47f-9ebb-4d10-b076-fdad6c8fc04c"
+  },
+  "original_inputs_sha256": "9e54b37d452447eb0f32e2e4574e7524efeed24abf62a8189423fe3a648cd4b4"
+}

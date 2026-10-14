@@ -1,0 +1,35 @@
+{
+  "inputs": {
+    "validated_by_main": true,
+    "twoliter_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+    "bottlerocket_revision": "5cfeacd31949b6f68c4ddae79978eab6c33bb9d1",
+    "tool_build_id": "5f9981c7-d926-4266-8a86-beb827890fd6",
+    "testing_evidence": [
+      "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/implementation/local-checks.json",
+      "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/implementation/cli-order-fix.log",
+      "/home/fedora/Repositories/symphony/.symphony/builds/8004079b-9f1f-49cd-953b-b871ac5bbe53/result.json",
+      "/home/fedora/Repositories/symphony/.symphony/builds/27dd6de7-6190-4795-bd73-c4921601f975/result.json",
+      "/home/fedora/Repositories/symphony/.symphony/builds/5f9981c7-d926-4266-8a86-beb827890fd6/result.json"
+    ],
+    "prerequisite_jobs": {
+      "check": "8004079b-9f1f-49cd-953b-b871ac5bbe53",
+      "integ": "27dd6de7-6190-4795-bd73-c4921601f975",
+      "build": "5f9981c7-d926-4266-8a86-beb827890fd6"
+    },
+    "candidate_sha256": "eb27b91e5d10996e2c3306bcce1228aa90588affd861284e1531f32893c7efc3"
+  },
+  "release": "1.66.0-symphony.24",
+  "original_source_freeze": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/bootstrap/source-freeze.json",
+  "original_source_freeze_sha256": "5bf6c5f5f5aac0a576291fabb5745cffca34070881c2314961cce4dff3de1566",
+  "public_signing_file_hashes": {
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/KEK.crt": "07d9627ecc162b8e47cdb1156dd13de71c2c180745d0564ffd0e55dd9caa78b0",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/PK.crt": "e982a2898e83d00d50940da153146e7981f4b6a546736d8ebf87c94368e64301",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/code-sign.crt": "467ce66707dc264279ebf543234cd93b47b3b17b8ad3d7f23868336ece38bf19",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/db.crt": "06c9a67cf3a509def13b35e27df6f9d037338700887a07a2529f64af6cdd6108",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/efi-vars.aws": "ab56eb4497fbd767875eca3453a0ca7b5e636de12bb62757f25d33a22d10679e",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/efi-vars.json": "58f7dbdcfb76ce749f4f9b442e1124b9c6b7ce9ae3168348f089c3d6644f019e",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/shim-sign.crt": "959c770f335b0a768d001a9648cb2fc85bf157e8e17ecb652b83a1caca4b657e",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/uki-sign.crt": "7b78ced50647ef28e166149877516ab69214dc8e551a8084a08d7d42fa5fd293",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/bottlerocket/sbkeys/local/vendor.crt": "c1fa05897de0455546dbd0d656a6b59d2bf4e2bfe65cfde59bdde8f68ced71f1"
+  }
+}

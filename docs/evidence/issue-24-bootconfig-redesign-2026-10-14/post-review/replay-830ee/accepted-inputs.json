@@ -1,0 +1,10 @@
+{
+  "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "bottlerocket_revision": "5cfeacd31949b6f68c4ddae79978eab6c33bb9d1",
+  "original_inputs": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/inputs.json",
+  "original_inputs_sha256": "9e54b37d452447eb0f32e2e4574e7524efeed24abf62a8189423fe3a648cd4b4",
+  "authorization": "Main requested fresh post-review check, integ and release plus replay of all ten retained images. No new AMI builds or boots.",
+  "review": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/final-review/REVIEW.md",
+  "review_sha256": "763f133b509c47ff8d9252b522e67db18b2f06ed377868c32836aef2ae38b033"
+}

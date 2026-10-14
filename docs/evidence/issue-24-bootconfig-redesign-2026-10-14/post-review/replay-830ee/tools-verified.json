@@ -1,0 +1,45 @@
+{
+  "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "release_build_id": "5ad7e47f-9ebb-4d10-b076-fdad6c8fc04c",
+  "binaries": {
+    "twoliter": {
+      "path": "/home/fedora/Repositories/symphony/.symphony/builds/5ad7e47f-9ebb-4d10-b076-fdad6c8fc04c/artifacts/twoliter",
+      "sha256": "bb773a04ef398116aa359a85737020bc68607a38f2f1219889a4f880963c8a8d"
+    },
+    "pcrsys": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/pcrsys",
+      "sha256": "79f901ab61921633f8ca900e02b9a735b0fa44b0d4b9d7d5d81a08a48673da13"
+    },
+    "ukisys": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+      "sha256": "47435217778d99096c7a73d91de13fba69063586f6679921ba92b3c95bba9587"
+    },
+    "command_line": {
+      "path": "/tmp/symphony-issue24-post-review-8209d426-bbae-4591-a7d6-a55ce6e4acd2/target/debug/symphony-redesign-command-line",
+      "sha256": "c1eea9afff8a472b50cb5a251a875e9c9603298d172fefeae8603adf6455f366"
+    }
+  },
+  "source_provenance": {
+    "input_sha256": "36170a8087390a58ac861118aec1137a4b8349ae370dd6c7c0db910e6f79837c",
+    "sources": {
+      "member": {
+        "revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+        "tracked_changes": ""
+      },
+      "twoliter": {
+        "revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+        "tracked_changes": ""
+      }
+    },
+    "dependencies": [],
+    "request_id": "5ad7e47f-9ebb-4d10-b076-fdad6c8fc04c"
+  },
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.97.1\nLLVM version: 22.1.6\n",
+  "cargo": "cargo 1.97.1 (c980f4866 2026-06-30)\n",
+  "helper_files": {
+    "main.rs": "0f6ce6ad003232d903c3474122f195123135df793ff25381145a39e2f6d6f4a9",
+    "Cargo.toml": "69f42cff809c39781806f549f6db094328471c996232eccac3af8248e76f148a",
+    "Cargo.lock": "b1b0d0b53749d9b907fa38ab9ad352ccaaf43bad1ea313bd6b24ed4896c9fe97"
+  }
+}

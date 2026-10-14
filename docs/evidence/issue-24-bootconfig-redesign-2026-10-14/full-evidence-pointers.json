@@ -1,0 +1,102 @@
+[
+  {
+    "variant": "aws-ecs-3",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6",
+    "build_result_sha256": "589e4e994cec6cd9cfb234e4d756e60055dd84223fe86a2b58bf614d8b8c1ffa",
+    "collection_receipt_sha256": "e2302ca99a3b69b77593fae05eb14e97baef46af7f518070f7cfc79419eea69b",
+    "build_log_sha256": "e1965bbf3078a5e21f9f11ab90d2e0098b4773e94d31301b13f2a3b0d6f763c7",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6/raw-images.json",
+    "raw_images_metadata_sha256": "9b1bf531d930299d87e79e8071ce8dc475cb4e4e4ebbdc36eca2d2a2182e617c"
+  },
+  {
+    "variant": "aws-ecs-3-fips",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-fips/28345af2-68a8-4685-bfc0-517f9c11aa62",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/28345af2-68a8-4685-bfc0-517f9c11aa62",
+    "build_result_sha256": "9980df77c0116fb733795b0b87ad0ba75db58d83d06045585ad36352c9a294bd",
+    "collection_receipt_sha256": "9ac387166fe3117c1b3b76024fbea30bd2c1cb7c98ad3b597bd5d630e74ce245",
+    "build_log_sha256": "185fa172512ad3d5d6ac79fc83defeabe25b81bef9ac69e5c2fa65a50a744f36",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-fips/28345af2-68a8-4685-bfc0-517f9c11aa62/raw-images.json",
+    "raw_images_metadata_sha256": "d72bc2a6eb3dd7e8a23267439bc85bab482d3f57573c631543786c201ae5e6fd"
+  },
+  {
+    "variant": "aws-ecs-3-nvidia",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia/ed68dd56-2258-4399-93c9-eaa7f83d85d6",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/ed68dd56-2258-4399-93c9-eaa7f83d85d6",
+    "build_result_sha256": "0a4871fb1c14c00e99322bcc3bfc6632ea8bd4a59bb5ec612cb5ead49e6dc412",
+    "collection_receipt_sha256": "389c0e78f6bd6b4a831189af3dce307f0cb9ebaefa7ab65737b880896e5661ef",
+    "build_log_sha256": "114a216c02007d0a765ee9110586ddb638a1c9dcee42e5683803a807914a9227",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia/ed68dd56-2258-4399-93c9-eaa7f83d85d6/raw-images.json",
+    "raw_images_metadata_sha256": "603f994ea7aa8414d560a72017ce9732c4cada73185839c75099222e2acc8b99"
+  },
+  {
+    "variant": "aws-ecs-3-nvidia-fips",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia-fips/46809d24-552d-423e-bf40-eaf55642045a",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/46809d24-552d-423e-bf40-eaf55642045a",
+    "build_result_sha256": "22f3dfa17dcdc8d554887631da495f627d0e903f832f529e2e794ed763061c36",
+    "collection_receipt_sha256": "67ef6f2a86660eb25ea46bc16ee9bd2a74e2c4178ba67895cc56ca3da57e0435",
+    "build_log_sha256": "75b73bd990846d11218a4f64b552e8d10fb5513e96a10c59e151c057115b863b",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia-fips/46809d24-552d-423e-bf40-eaf55642045a/raw-images.json",
+    "raw_images_metadata_sha256": "88b8dbe9d86b238cc912fc346ff20b68d69faebd0f9d9489dc9f75ef860f0931"
+  },
+  {
+    "variant": "aws-ecs-4",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56",
+    "build_result_sha256": "cf15d9f3ce12f3014ae55f01190355c2d1727ce90d16f0c09abca4bb11dc765e",
+    "collection_receipt_sha256": "c371c79ab89938dd5ca55e05f79ec01232c4c6f75fe0ce475599c1fa30d4aab5",
+    "build_log_sha256": "a13ec5a0b816c67b5c612140357636be56c4690d7606744bf5fba473ab25e5fd",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56/raw-images.json",
+    "raw_images_metadata_sha256": "8cebca58c648bf9e213d527b86f2a33042b2f0249cacd76ae2ef6e7a0b9d4e7c"
+  },
+  {
+    "variant": "aws-ecs-4-nvidia",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4-nvidia/4421e328-02b5-437e-a24a-84e2b871d2c2",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/4421e328-02b5-437e-a24a-84e2b871d2c2",
+    "build_result_sha256": "0a14d672e3f591dc883570a4f2ee89795965b07b56bee239717b11a5de964857",
+    "collection_receipt_sha256": "800e1cd024ff77ed64973caca1b9fd527bcd7f3dd0b6cf35d902647780b0dccf",
+    "build_log_sha256": "32f25b5fb519515af7d0319df2e6e60a23dbdbec4e625826be5d002f90ddec53",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4-nvidia/4421e328-02b5-437e-a24a-84e2b871d2c2/raw-images.json",
+    "raw_images_metadata_sha256": "864f5645a7245811d17a04ed91c9c78a6649be943a46ebe5ae4cee0b890b6481"
+  },
+  {
+    "variant": "aws-mantle-1",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1/2bbc9163-1a48-4c11-8303-45b99e671b39",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/2bbc9163-1a48-4c11-8303-45b99e671b39",
+    "build_result_sha256": "e84b4a93873161854ab814b9ffae13ce2ba18ac36ad6f0f0b388dd6533b9344b",
+    "collection_receipt_sha256": "9ef0454444b28980ddbce21aa9b8a6244f17c88ddf78c00285040213b78e1c0a",
+    "build_log_sha256": "f4db7f9a31b66d6fe01602a75139ce080dff31460cc2693a86cc38b80e99c7f5",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1/2bbc9163-1a48-4c11-8303-45b99e671b39/raw-images.json",
+    "raw_images_metadata_sha256": "6669129714232a898d44d0f271751ae96f63cdf391a5f6d71a22208e92ba5e06"
+  },
+  {
+    "variant": "aws-mantle-1-fips",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-fips/e365f3c2-d085-4b61-b7ef-32fb59687d78",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/e365f3c2-d085-4b61-b7ef-32fb59687d78",
+    "build_result_sha256": "ae16de64d007d0e025bb5d3cf4832bb2192593319e261667f26482c75c0d2a5d",
+    "collection_receipt_sha256": "fbaa094d33e510c211dc0b6d1656c3a78aef32ba8aad1198fef17ac98d9c61a0",
+    "build_log_sha256": "607b1554fa11438ae30342c23a51ad06b38302c77e6817fc742d5a1d48671ed9",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-fips/e365f3c2-d085-4b61-b7ef-32fb59687d78/raw-images.json",
+    "raw_images_metadata_sha256": "541d410dbded39855be9b1100de57c7790ba9b32a494f1bd5048bc866a470fc8"
+  },
+  {
+    "variant": "aws-mantle-1-nvidia",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia/0346b16c-3d8a-4c94-b242-2ceb97b4c395",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/0346b16c-3d8a-4c94-b242-2ceb97b4c395",
+    "build_result_sha256": "a3ad22711916b99f5dc6fcf800e98533fe68fc0c209d289ffa28be81b5df4e46",
+    "collection_receipt_sha256": "7128509a02351b6e72b67291d8a5bbb7790952f2415a5a9a00561ef3390e0ca2",
+    "build_log_sha256": "07238c0330e2cacfae7e0504c1312cd4979a20a09e3f36d48781c6a867c525c0",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia/0346b16c-3d8a-4c94-b242-2ceb97b4c395/raw-images.json",
+    "raw_images_metadata_sha256": "97c0403dc6b8863694a01e99ce41e1a7fb01433726dd4d8b8571a3d969392fe1"
+  },
+  {
+    "variant": "aws-mantle-1-nvidia-fips",
+    "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia-fips/0ca29c05-e38b-4d60-916f-d44be1e37177",
+    "original_build": "/home/fedora/Repositories/symphony/.symphony/builds/0ca29c05-e38b-4d60-916f-d44be1e37177",
+    "build_result_sha256": "bb10d0e35eeb30986c8e9472d024380b33c5d5b784146bb3a12a1dac0b8bfb40",
+    "collection_receipt_sha256": "4e6be5952e5dc57222cccddd4b5e4bc0afce727bb144dd9361bfb7119d586bf0",
+    "build_log_sha256": "b6207fc682328b45f8f7ea67fa137db3875905238765428cb13f619fd401914a",
+    "raw_images_metadata": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia-fips/0ca29c05-e38b-4d60-916f-d44be1e37177/raw-images.json",
+    "raw_images_metadata_sha256": "01b50f767c80805d9feffcea5c8ddbb648dcd6c3dcf87239ded5bbd0dbada9a7"
+  }
+]

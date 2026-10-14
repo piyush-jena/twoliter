@@ -1,0 +1,37 @@
+{
+  "twoliter_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "tool_build_id": "5f9981c7-d926-4266-8a86-beb827890fd6",
+  "binaries": {
+    "twoliter": {
+      "path": "/home/fedora/Repositories/symphony/.symphony/builds/5f9981c7-d926-4266-8a86-beb827890fd6/artifacts/twoliter",
+      "sha256": "a5a90c5861b3efbc0ad12318451ac4bdb63b5e58d5ac78cfa4729cab2ce7ea03"
+    },
+    "pcrsys": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/pcrsys",
+      "sha256": "7337ee6dc63efeb725f0c437e31243b06a688845d5e6d06105333689582f5920"
+    },
+    "pubsys": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/pubsys",
+      "sha256": "89689ae4cc13abd37f789c9ca6fcae3c3d78dbd3c3e75f6f4aa73942cd410ecc"
+    },
+    "command_line": {
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/command-line-helper-target/debug/symphony-redesign-command-line",
+      "sha256": "685db109032b5a1d1e9e8e6ce9a76e0ee3f362d06ae123909e973054897577b9"
+    }
+  },
+  "source_provenance": {
+    "input_sha256": "aa9348121ff373b65887793862a2c501d3b7695c66933c794fcdc456625f4d14",
+    "sources": {
+      "member": {
+        "revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+        "tracked_changes": ""
+      },
+      "twoliter": {
+        "revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+        "tracked_changes": ""
+      }
+    },
+    "dependencies": [],
+    "request_id": "5f9981c7-d926-4266-8a86-beb827890fd6"
+  }
+}

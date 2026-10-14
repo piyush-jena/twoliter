@@ -1,0 +1,293 @@
+{
+  "passed": true,
+  "old_source": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "new_source": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "tools": {
+    "old": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+      "sha256": "acbfe00be449421f7857bfce3852aeecc76445fbcae90f6d8a60d10b04bd2444"
+    },
+    "new": {
+      "path": "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+      "sha256": "86f012eb8eb17d4c080fa07f3a68be3c48507f9bda3df90517bf712230ee26c5"
+    }
+  },
+  "cases": {
+    "mixed-block": {
+      "old": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/mixed-block/old/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = \"i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/mixed-block/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/mixed-block/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = \"i8042\"\n",
+        "input_preserved": false
+      },
+      "new": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/mixed-block/new/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = i8042\n",
+        "cat_stderr": "",
+        "argv": [
+          "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/mixed-block/new/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/mixed-block/new/bootconfig.in"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Error: Failed to merge bootconfig module blacklists *\n\nCaused by this error:\n  1: Module blacklist must be a single-line assignment\n\nNOTE: Some redundant information has been removed from the lines marked with *. Set SNAFU_RAW_ERROR_MESSAGES=1 to disable this behavior.\n\n",
+        "output": "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = i8042\n",
+        "input_preserved": true
+      }
+    },
+    "canonical": {
+      "old": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/canonical/old/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/canonical/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/canonical/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      },
+      "new": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/canonical/new/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/canonical/new/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/canonical/new/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      }
+    },
+    "aliases": {
+      "old": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/aliases/old/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/aliases/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/aliases/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      },
+      "new": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/aliases/new/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/aliases/new/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/aliases/new/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      }
+    },
+    "arrays": {
+      "old": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/arrays/old/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.console = tty0, ttyS0\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/arrays/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/arrays/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      },
+      "new": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/arrays/new/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.console = tty0, ttyS0\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/arrays/new/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/arrays/new/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      }
+    },
+    "plain": {
+      "old": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/plain/old/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.console = tty0, ttyS0\nkernel.quiet\n",
+        "cat_stderr": "",
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/plain/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/plain/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.quiet\n",
+        "input_preserved": true
+      },
+      "new": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/plain/new/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.console = tty0, ttyS0\nkernel.quiet\n",
+        "cat_stderr": "",
+        "argv": [
+          "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/plain/new/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/plain/new/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.quiet\n",
+        "input_preserved": true
+      }
+    },
+    "fips": {
+      "old": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/fips/old/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.fips = 1\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/fips/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/fips/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.fips = 1\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      },
+      "new": {
+        "cat_argv": [
+          "cat",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/fips/new/bootconfig.in"
+        ],
+        "cat_exit_code": 0,
+        "cat_stdout": "kernel.fips = 1\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "cat_stderr": "",
+        "argv": [
+          "/tmp/symphony-ukisys-redesign-check/target/debug/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/fips/new/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/blacklist-cases/fips/new/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.fips = 1\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n",
+        "input_preserved": false
+      }
+    }
+  }
+}

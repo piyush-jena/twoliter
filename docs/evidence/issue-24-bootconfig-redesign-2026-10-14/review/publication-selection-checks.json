@@ -1,0 +1,8 @@
+{
+  "bundle_manifest_sha256": "e895620eaeb5e42211d093fee5e27a8959f2bdd02ce01694cff7f5edbf793b5c",
+  "bundle_files_verified": 1134,
+  "publication_selection_files_verified": 42,
+  "all_ten_row_consoles_comparisons_expected_bytes_equal_canonical": true,
+  "proposed_reports_read": true,
+  "additional_actionable_findings": []
+}

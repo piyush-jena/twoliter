@@ -1,0 +1,2 @@
+kernel { module_blacklist = evil }
+kernel.module_blacklist = "i8042"

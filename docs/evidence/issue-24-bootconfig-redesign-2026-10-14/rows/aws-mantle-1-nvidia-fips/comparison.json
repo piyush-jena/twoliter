@@ -1,0 +1,575 @@
+{
+  "build_id": "0ca29c05-e38b-4d60-916f-d44be1e37177",
+  "variant": "aws-mantle-1-nvidia-fips",
+  "boot_path": "uki",
+  "instance_id": "i-07a548c96b0845c0c",
+  "ami_id": "ami-0b00bbba9be690efa",
+  "region": "us-west-2",
+  "boot_id": "4de2ac48-de39-4348-a135-5797231a73ff",
+  "twoliter_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "bottlerocket_revision": "5cfeacd31949b6f68c4ddae79978eab6c33bb9d1",
+  "predictions_equal_across_build_disk_ami": true,
+  "prediction_sha256": "4f24321242019e063f5b8bf83511d8c36b747bf0a028849a891b61fc1844d2c9",
+  "banks": {
+    "sha256": {
+      "matches": 14,
+      "comparisons": 14
+    },
+    "sha384": {
+      "matches": 14,
+      "comparisons": 14
+    }
+  },
+  "comparisons": [
+    {
+      "bank": "sha256",
+      "pcr": 0,
+      "expected": [
+        "737f767a12f54e70eecbc8684011323ae2fe2dd9f90785577969d7a2013e8c12"
+      ],
+      "actual": "737f767a12f54e70eecbc8684011323ae2fe2dd9f90785577969d7a2013e8c12",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 0,
+      "expected": [
+        "6e901b16932f6e036747d7a57696e4a2cc864008ebc016826ca1d7bd42ab5ac8286ccf49cde6c0284cbc4b63d978a2ec"
+      ],
+      "actual": "6e901b16932f6e036747d7a57696e4a2cc864008ebc016826ca1d7bd42ab5ac8286ccf49cde6c0284cbc4b63d978a2ec",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 2,
+      "expected": [
+        "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969"
+      ],
+      "actual": "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 2,
+      "expected": [
+        "518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4"
+      ],
+      "actual": "518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 3,
+      "expected": [
+        "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969"
+      ],
+      "actual": "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 3,
+      "expected": [
+        "518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4"
+      ],
+      "actual": "518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 4,
+      "expected": [
+        "6e828b2501a5f060d789361f24c4e6db51c54e730c1b36cc87a72a0d94a4d0f0"
+      ],
+      "actual": "6e828b2501a5f060d789361f24c4e6db51c54e730c1b36cc87a72a0d94a4d0f0",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 4,
+      "expected": [
+        "10acf868a2a1847e47a3fa8fe7bb903aa8917661de7b4ab2955b0ca87d01e7f400e5126d4c820d70f146c5de28753c47"
+      ],
+      "actual": "10acf868a2a1847e47a3fa8fe7bb903aa8917661de7b4ab2955b0ca87d01e7f400e5126d4c820d70f146c5de28753c47",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 5,
+      "expected": [
+        "fb6ac381aae504e3c7b4fb01d39c1d8f22004d8a8e5ed969330799e47fa11df0"
+      ],
+      "actual": "fb6ac381aae504e3c7b4fb01d39c1d8f22004d8a8e5ed969330799e47fa11df0",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 5,
+      "expected": [
+        "374b28ef25ee3b8da7400b9ceab321acec6c6fe673b307a1a33b21947dcd7307e6fb55a8b9c8475ff3f6ed489fb6ab60"
+      ],
+      "actual": "374b28ef25ee3b8da7400b9ceab321acec6c6fe673b307a1a33b21947dcd7307e6fb55a8b9c8475ff3f6ed489fb6ab60",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 6,
+      "expected": [
+        "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969"
+      ],
+      "actual": "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 6,
+      "expected": [
+        "518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4"
+      ],
+      "actual": "518923b0f955d08da077c96aaba522b9decede61c599cea6c41889cfbea4ae4d50529d96fe4d1afdafb65e7f95bf23c4",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 7,
+      "expected": [
+        "9e75496b3519bc3d94deb7b7c5b8e37014d6d0116a687fdd1149bb416cf09d91"
+      ],
+      "actual": "9e75496b3519bc3d94deb7b7c5b8e37014d6d0116a687fdd1149bb416cf09d91",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 7,
+      "expected": [
+        "3154d152ffcc39b1260695a86d94c4dc09b51eba3e1a875b42000ff68bbc55f3c1433cd3f5cc1c5025738ce68e617496"
+      ],
+      "actual": "3154d152ffcc39b1260695a86d94c4dc09b51eba3e1a875b42000ff68bbc55f3c1433cd3f5cc1c5025738ce68e617496",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 9,
+      "expected": [
+        "d1c9ab38d431bd4429749eb1be8af952a4f7c6654723bbca9d2fa40564cc256a"
+      ],
+      "actual": "d1c9ab38d431bd4429749eb1be8af952a4f7c6654723bbca9d2fa40564cc256a",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 9,
+      "expected": [
+        "313912152fd50e2df461b37a5dc58f0665177b0490eed69a27349db61e2abb7aeb0a86ba6529afed24361acbaae54090"
+      ],
+      "actual": "313912152fd50e2df461b37a5dc58f0665177b0490eed69a27349db61e2abb7aeb0a86ba6529afed24361acbaae54090",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 10,
+      "expected": [
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 10,
+      "expected": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 11,
+      "expected": [
+        "a4df91049b707f98a428913172910698bf4ddc02b0cc87b1c6234bc0a6b9ea56"
+      ],
+      "actual": "a4df91049b707f98a428913172910698bf4ddc02b0cc87b1c6234bc0a6b9ea56",
+      "match": true,
+      "matched_prediction_indices": [
+        4
+      ],
+      "selection": "ready phase, index 4"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 11,
+      "expected": [
+        "f7f6d3fbb6d248a4b9151dd35805bc050e01fb3704d9ab30c69a3a2165482917e015a88bb025a43cee48133f8070e80a"
+      ],
+      "actual": "f7f6d3fbb6d248a4b9151dd35805bc050e01fb3704d9ab30c69a3a2165482917e015a88bb025a43cee48133f8070e80a",
+      "match": true,
+      "matched_prediction_indices": [
+        4
+      ],
+      "selection": "ready phase, index 4"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 12,
+      "expected": [
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 12,
+      "expected": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 13,
+      "expected": [
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 13,
+      "expected": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 14,
+      "expected": [
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 14,
+      "expected": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 15,
+      "expected": [
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 15,
+      "expected": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "match": true,
+      "matched_prediction_indices": [
+        0
+      ],
+      "selection": "build-emitted alternatives"
+    }
+  ],
+  "unpredicted": [
+    {
+      "bank": "sha256",
+      "pcr": 1,
+      "actual": "48b022210d833987a8519ee6e53a368d3e23bc42fe91466223995736a6914650"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 8,
+      "actual": "3828ac81992c83f4d0db0a67c4c8d07f9e72457942cd1043bd4cac95d17c1d1d"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 16,
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 17,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 18,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 19,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 20,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 21,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 22,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha256",
+      "pcr": 23,
+      "actual": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 1,
+      "actual": "0f12d00f7a6f9dceac2565a569bd840db441a9b5d9dad0973f8647d49ec95324fe511c81fdec4b24e9dc41bba1f6a66f"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 8,
+      "actual": "3712a51c30007504b7356c8f774335cb63cde7fa237f44fb4bcbd48c2b545cd20d4f506a5ec9b64d760b8370b610f1d1"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 16,
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 17,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 18,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 19,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 20,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 21,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 22,
+      "actual": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "bank": "sha384",
+      "pcr": 23,
+      "actual": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "predicted_indices": [
+    0,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "all_predicted_match": true,
+  "same_prediction_state_across_banks": true,
+  "common_prediction_indices": {
+    "0": [
+      0
+    ],
+    "2": [
+      0
+    ],
+    "3": [
+      0
+    ],
+    "4": [
+      0
+    ],
+    "5": [
+      0
+    ],
+    "6": [
+      0
+    ],
+    "7": [
+      0
+    ],
+    "9": [
+      0
+    ],
+    "10": [
+      0
+    ],
+    "11": [
+      4
+    ],
+    "12": [
+      0
+    ],
+    "13": [
+      0
+    ],
+    "14": [
+      0
+    ],
+    "15": [
+      0
+    ]
+  },
+  "cmdline_exact_match": true,
+  "cmdline_bytes": {
+    "live": 859,
+    "predicted": 859
+  },
+  "cmdline_sha256": "e078421d33dae97169554b535b352ed378ea9653d86b398d70d42d5c2262cceb",
+  "cmdline_trailing_bytes_hex": "6f6c6f723d302073797374656d642e73686f775f7374617475733d747275650a",
+  "direct_pcr9_from_live_cmdline": {},
+  "health": {
+    "ready": true,
+    "same_boot": true,
+    "system_running": true,
+    "no_failed_units": true,
+    "version": true,
+    "architecture": true,
+    "secure_boot": true,
+    "fips_enabled": true,
+    "nvidia_driver_loaded": true,
+    "nvidia_device_visible": true
+  },
+  "pcr_ssm_command_id": "87000eac-3769-4a75-bf1f-55fbc53e7934",
+  "passed": true
+}

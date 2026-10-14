@@ -1,0 +1,5 @@
+# Q8: Fresh TPM and exact bytes
+
+Independently parsed 48 measured PCRs per instance from 146 successful SSM readbacks across ten rows. Recompared all 256 generated predictions, 128 per bank, and checked a common alternative index across banks. PCR11 is restricted to index 4 based on observed multi-user readiness before/after and active exited phase units; stable boot IDs bracket each capture. Six GRUB fixtures have 12 predicted indices/bank, four UKIs 14. Unpredicted measurements stay separate. Recomputed twelve GRUB PCR9 diagnostics as H(zero || H(expected cmdline bytes)), excluding them from generated counts. Compared complete SSM cmdline strings encoded as bytes with expected files including newline, reran the six pure local GRUB formatter commands, and independently decoded four retained signed-UKI .cmdline sections.
+
+Evidence: independent-evidence-checks.json; ../validation/compare.py:45; ../validation/validate.py:30; 09380d356886842b8987b602ed2ef7daaefec4f3:tools/pcrsys/src/pcrs/pcr11.rs:10.

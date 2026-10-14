@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+    "merge-bootconfig",
+    "--input",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/final-review/mixed.input",
+    "--output",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/final-review/mixed.output"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "stdout": "",
+  "output": "kernel { module_blacklist = evil }\nkernel.module_blacklist = \"i8042\"\n"
+}

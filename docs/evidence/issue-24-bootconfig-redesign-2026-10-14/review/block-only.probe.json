@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+    "merge-bootconfig",
+    "--input",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/final-review/block-only.input",
+    "--output",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/final-review/block-only.output"
+  ],
+  "exit_code": 1,
+  "stderr": "Error: Failed to merge bootconfig module blacklists *\n\nCaused by this error:\n  1: Module blacklist must be a single-line assignment\n\nNOTE: Some redundant information has been removed from the lines marked with *. Set SNAFU_RAW_ERROR_MESSAGES=1 to disable this behavior.\n\n",
+  "stdout": "",
+  "output": null
+}

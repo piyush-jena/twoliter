@@ -1,0 +1,23 @@
+{
+  "request_id": "262e26dd-c593-4914-8380-e37ba38b03ab",
+  "request": {
+    "target": "twoliter",
+    "arch": "x86_64",
+    "reason": "Post-review F1 fix: validate retained malformed blacklist forms before canonical append; repeat affected validation.",
+    "testing": "Post-review final Twoliter make integ.",
+    "last_change": "830ee97501b0 moves blacklist form validation before append and adds a regression; valid formatting/parser/PCR behavior is unchanged.",
+    "operation": "integ",
+    "twoliter_revision": "830ee97501b05adbf6dc76d13383643e440a6002"
+  },
+  "status": "succeeded",
+  "exit_code": 0,
+  "log": "/home/fedora/Repositories/symphony/.symphony/builds/262e26dd-c593-4914-8380-e37ba38b03ab/build.log",
+  "wall_clock_s": 714.6715865135193,
+  "artifacts": [
+    "/home/fedora/Repositories/symphony/.symphony/builds/262e26dd-c593-4914-8380-e37ba38b03ab/artifacts/rust-toolchain-provenance.txt",
+    "/home/fedora/Repositories/symphony/.symphony/builds/262e26dd-c593-4914-8380-e37ba38b03ab/artifacts/source-provenance.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/262e26dd-c593-4914-8380-e37ba38b03ab/artifacts/twoliter-provenance.txt"
+  ],
+  "cache": "unknown",
+  "executor": "cloud"
+}

@@ -1,0 +1,19 @@
+{
+  "validated_by_main": true,
+  "twoliter_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "bottlerocket_revision": "5cfeacd31949b6f68c4ddae79978eab6c33bb9d1",
+  "tool_build_id": "5f9981c7-d926-4266-8a86-beb827890fd6",
+  "testing_evidence": [
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/implementation/local-checks.json",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/implementation/cli-order-fix.log",
+    "/home/fedora/Repositories/symphony/.symphony/builds/8004079b-9f1f-49cd-953b-b871ac5bbe53/result.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/27dd6de7-6190-4795-bd73-c4921601f975/result.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/5f9981c7-d926-4266-8a86-beb827890fd6/result.json"
+  ],
+  "prerequisite_jobs": {
+    "check": "8004079b-9f1f-49cd-953b-b871ac5bbe53",
+    "integ": "27dd6de7-6190-4795-bd73-c4921601f975",
+    "build": "5f9981c7-d926-4266-8a86-beb827890fd6"
+  },
+  "candidate_sha256": "eb27b91e5d10996e2c3306bcce1228aa90588affd861284e1531f32893c7efc3"
+}

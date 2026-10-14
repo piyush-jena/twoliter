@@ -1,0 +1,112 @@
+[
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/after-prerequisites.py",
+    "bundle_path": "helpers/after-prerequisites.py",
+    "sha256": "e6bb60eaf3d4e09191a141f0d1c83cccd918a46b79ce6afe71b9a71387a960db"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/bootstrap.py",
+    "bundle_path": "helpers/bootstrap.py",
+    "sha256": "011149e2b928ae36961f82e6d3b034ffcea23d24621bf3c3e472bbdca4479885"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/bundle.py",
+    "bundle_path": "helpers/bundle.py",
+    "sha256": "bbab81c436a4bd7920c95db1cfa0d1916ebff897e552f644b31fd84367486dcc"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/cloud-setup.py",
+    "bundle_path": "helpers/cloud-setup.py",
+    "sha256": "0461aab82aa0f5ddc125813c487e98a04bb4e72d2dfd758fd80711f44bdf69be"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/common.py",
+    "bundle_path": "helpers/common.py",
+    "sha256": "b8779de6dfc17b85684f5685215c519fc8a84e48a575a18d5625c851baf9605e"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/compare.py",
+    "bundle_path": "helpers/compare.py",
+    "sha256": "aeb53433462f04d461b97028367ccea635e28f878f4be3ad145c4263e220548d"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/execute.py",
+    "bundle_path": "helpers/execute.py",
+    "sha256": "e0d53132f78eb6f7b7eca38c3e83c469925dd1b2fd577934032d99299c1bd9a2"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/launch.py",
+    "bundle_path": "helpers/launch.py",
+    "sha256": "1bf8abf539479210a9015e0a10740962ee24162ca10ad55853e31cdf2172339b"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/prepare.py",
+    "bundle_path": "helpers/prepare.py",
+    "sha256": "e03072f5838503fdee2e20ac09d4932c6eda2888c6f533e14c47611e96cf42af"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/prerequisites.py",
+    "bundle_path": "helpers/prerequisites.py",
+    "sha256": "07e4c99f797c02a0e2b668d49cc41191f30060ad36345e5ee7c8eca18b614f0b"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/register.py",
+    "bundle_path": "helpers/register.py",
+    "sha256": "37964abe9a416c778be69950d2ad1724f637a3af579b7fdb10fab30f999b9912"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/run-row.py",
+    "bundle_path": "helpers/run-row.py",
+    "sha256": "c2484434e5654b5b76793d3c67b10fc765079340ff7330eec5bc9b59ad5941ba"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/submit-wave.py",
+    "bundle_path": "helpers/submit-wave.py",
+    "sha256": "54721b8819f6b900cceb4f181aa9feaac7335f23b4a0483b0d95d95d3458079c"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/summarize.py",
+    "bundle_path": "helpers/summarize.py",
+    "sha256": "f21f506dad6d1e3b30a3ca37364ad08e3d877c36c2325adf651314326657065c"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/validate.py",
+    "bundle_path": "helpers/validate.py",
+    "sha256": "4a78b44184718336f17539a71b2b446fc8731bd0891455891246e2fc13413777"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/wait-online.py",
+    "bundle_path": "helpers/wait-online.py",
+    "sha256": "de29d138d0acb445d96eb804f14121d7ce404f99178293c11662e6597ae99341"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/README.md",
+    "bundle_path": "helpers/README.md",
+    "sha256": "f94082e62083ed9d383a996a60351b42f234468c624dbbc38bc61ebef125c8f6"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/command-line-helper/Cargo.toml",
+    "bundle_path": "helpers/command-line-helper/Cargo.toml",
+    "sha256": "69f42cff809c39781806f549f6db094328471c996232eccac3af8248e76f148a"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/command-line-helper/Cargo.lock",
+    "bundle_path": "helpers/command-line-helper/Cargo.lock",
+    "sha256": "b1b0d0b53749d9b907fa38ab9ad352ccaaf43bad1ea313bd6b24ed4896c9fe97"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/command-line-helper/main.rs",
+    "bundle_path": "helpers/command-line-helper/main.rs",
+    "sha256": "0f6ce6ad003232d903c3474122f195123135df793ff25381145a39e2f6d6f4a9"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/skills/cloud/ssm-executor/scripts/sheltie-command.sh",
+    "bundle_path": "helpers/ssm/sheltie-command.sh",
+    "sha256": "edac0b0515959167fd3197906c86bef4cf40ce74ac08147a9e27865c6d2eb57d"
+  },
+  {
+    "path": "/home/fedora/Repositories/symphony/skills/cloud/ssm-executor/scripts/control-container-command.sh",
+    "bundle_path": "helpers/ssm/control-container-command.sh",
+    "sha256": "6460d0ee309fb6975e4d9ccc94566526e76afc71660e9bbe66fba9681c510a1d"
+  }
+]

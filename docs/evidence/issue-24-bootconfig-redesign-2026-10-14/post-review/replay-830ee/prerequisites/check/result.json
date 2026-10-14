@@ -1,0 +1,22 @@
+{
+  "request_id": "db4488ec-2f2c-4b2e-a2eb-55eba2d4879c",
+  "request": {
+    "target": "twoliter",
+    "arch": "x86_64",
+    "reason": "Post-review F1 fix: validate retained malformed blacklist forms before canonical append; repeat affected validation.",
+    "testing": "Post-review final formatting, workspace tests and all-target Clippy.",
+    "last_change": "830ee97501b0 moves blacklist form validation before append and adds a regression; valid formatting/parser/PCR behavior is unchanged.",
+    "operation": "check",
+    "twoliter_revision": "830ee97501b05adbf6dc76d13383643e440a6002"
+  },
+  "status": "succeeded",
+  "exit_code": 0,
+  "log": "/home/fedora/Repositories/symphony/.symphony/builds/db4488ec-2f2c-4b2e-a2eb-55eba2d4879c/build.log",
+  "wall_clock_s": 711.3606119155884,
+  "artifacts": [
+    "/home/fedora/Repositories/symphony/.symphony/builds/db4488ec-2f2c-4b2e-a2eb-55eba2d4879c/artifacts/check-result.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/db4488ec-2f2c-4b2e-a2eb-55eba2d4879c/artifacts/source-provenance.json"
+  ],
+  "cache": "unknown",
+  "executor": "cloud"
+}

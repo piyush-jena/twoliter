@@ -1,0 +1,130 @@
+{
+  "at": "2026-10-14T04:53:26.560278+00:00",
+  "all_verified": true,
+  "original_bundle_manifest_sha256": "e895620eaeb5e42211d093fee5e27a8959f2bdd02ce01694cff7f5edbf793b5c",
+  "original_bundle_files_verified": 1134,
+  "retained_images_verified_after_replay": [
+    {
+      "variant": "aws-ecs-3",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6/os.img",
+      "sha256": "87bfd042456898d65a826b7fa34e5948fd3aeb93418a670e9417ca161ca76892"
+    },
+    {
+      "variant": "aws-ecs-3",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6/data.img",
+      "sha256": "ed6c1f874768ae908199efb0e3d9ce6606206a4a2b438901728a843315eab844"
+    },
+    {
+      "variant": "aws-ecs-3-fips",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/28345af2-68a8-4685-bfc0-517f9c11aa62/os.img",
+      "sha256": "f780d4de79270882f3daa9f5069174b06be183d6ca411d09c5f9e047afdd6263"
+    },
+    {
+      "variant": "aws-ecs-3-fips",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/28345af2-68a8-4685-bfc0-517f9c11aa62/data.img",
+      "sha256": "6ac85028f500f70eead828e3025eae19819d6af9eaf46122d6296640c60579ac"
+    },
+    {
+      "variant": "aws-ecs-3-nvidia",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/ed68dd56-2258-4399-93c9-eaa7f83d85d6/os.img",
+      "sha256": "de9da3e2490505a7dc7a11d3833032851927ddc29ebbffef9b99744cd6754dcd"
+    },
+    {
+      "variant": "aws-ecs-3-nvidia",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/ed68dd56-2258-4399-93c9-eaa7f83d85d6/data.img",
+      "sha256": "8f12d4b1c111473f59def77de419c45eb07474d4a2f39b8c06e2c9bbb45dbaa4"
+    },
+    {
+      "variant": "aws-ecs-3-nvidia-fips",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/46809d24-552d-423e-bf40-eaf55642045a/os.img",
+      "sha256": "8c35ef2835471a414da8c16e8351d89b5d9ee96b6790c4fca4845af704bfb9a6"
+    },
+    {
+      "variant": "aws-ecs-3-nvidia-fips",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/46809d24-552d-423e-bf40-eaf55642045a/data.img",
+      "sha256": "37c045ebbc836b9d65e7141f0f643964eedc8befab1426c09573ece37db12d1a"
+    },
+    {
+      "variant": "aws-ecs-4",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56/os.img",
+      "sha256": "7d8526dbf9b2b5dd2fd3f90836b7022461fcb0a58948263b9b198c27d9c1b9f5"
+    },
+    {
+      "variant": "aws-ecs-4",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56/data.img",
+      "sha256": "12e0edc16b91cff1e5c4523c4846e8759276bdbf24c4d1ec97a46a079d499bfa"
+    },
+    {
+      "variant": "aws-ecs-4-nvidia",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/4421e328-02b5-437e-a24a-84e2b871d2c2/os.img",
+      "sha256": "524fa30c89a5c91ca468070022ce56093ce57b74042d6483d00c28fe55354521"
+    },
+    {
+      "variant": "aws-ecs-4-nvidia",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/4421e328-02b5-437e-a24a-84e2b871d2c2/data.img",
+      "sha256": "bc9d0206d9ac83f5d7d845ff498e20161d9819c1a8be21ac6d5c493366aadc68"
+    },
+    {
+      "variant": "aws-mantle-1",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/2bbc9163-1a48-4c11-8303-45b99e671b39/os.img",
+      "sha256": "d71aec7ac67b308d52bbf5d489691cf2f84d82ba818db438bf41f6b396380eda"
+    },
+    {
+      "variant": "aws-mantle-1",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/2bbc9163-1a48-4c11-8303-45b99e671b39/data.img",
+      "sha256": "bae3750662b0eb2fd75f1599884d36337ae0b42dc57db7dc9c363e56320a30f7"
+    },
+    {
+      "variant": "aws-mantle-1-fips",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/e365f3c2-d085-4b61-b7ef-32fb59687d78/os.img",
+      "sha256": "f7b9da2236c44e446e2c2c2230970fa931285bbddafd9335d6b6ad7eb290c001"
+    },
+    {
+      "variant": "aws-mantle-1-fips",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/e365f3c2-d085-4b61-b7ef-32fb59687d78/data.img",
+      "sha256": "56f5392ae1cf32d6a6763e497d2bae1514f66f780cc5cf819520b6101bd69da1"
+    },
+    {
+      "variant": "aws-mantle-1-nvidia",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/0346b16c-3d8a-4c94-b242-2ceb97b4c395/os.img",
+      "sha256": "f0b43c510c9db3144a4beff0297fee1e433786beb9c1ae11ba8ed2318de8b540"
+    },
+    {
+      "variant": "aws-mantle-1-nvidia",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/0346b16c-3d8a-4c94-b242-2ceb97b4c395/data.img",
+      "sha256": "653c05d540915c034842ff0cd97e6bb5e9527cfc9baec29c2632b71456fa8436"
+    },
+    {
+      "variant": "aws-mantle-1-nvidia-fips",
+      "kind": "os",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/0ca29c05-e38b-4d60-916f-d44be1e37177/os.img",
+      "sha256": "04e8bd9f4ec5e55299a362504c0c2b62038509923cae986233d14326c0a01a8f"
+    },
+    {
+      "variant": "aws-mantle-1-nvidia-fips",
+      "kind": "data",
+      "path": "/tmp/symphony-issue24-redesign-440e8668-90fe-4f5c-871a-9db2b91d0493/raw-images/0ca29c05-e38b-4d60-916f-d44be1e37177/data.img",
+      "sha256": "72e6da5e620a54e57799f956183cdccad95e8d2971b0a2f2284933f74fabf486"
+    }
+  ],
+  "canonical_comparisons_unchanged": 10,
+  "original_inputs_unchanged": true
+}

@@ -1,0 +1,52 @@
+diff --git a/tools/bootconfig/src/lib.rs b/tools/bootconfig/src/lib.rs
+index 339141b..a858d77 100644
+--- a/tools/bootconfig/src/lib.rs
++++ b/tools/bootconfig/src/lib.rs
+@@ -144,6 +144,15 @@ pub fn merge_blacklisted_modules(text: &str) -> Result<String> {
+             }
+         }
+     }
++    // Check untouched lines before appending: duplicate-value replacement
++    // would otherwise hide a block-form blacklist behind the merged assignment.
++    let config = parse_text(&output)?;
++    let blacklists = config
++        .kernel
++        .iter()
++        .filter(|p| matches!(p.name.as_str(), "module_blacklist" | "module-blacklist"))
++        .collect::<Vec<_>>();
++    ensure!(blacklists.is_empty(), error::InvalidBlacklistFormSnafu);
+     if !modules.is_empty() {
+         let value = modules
+             .iter()
+@@ -154,19 +163,6 @@ pub fn merge_blacklisted_modules(text: &str) -> Result<String> {
+         // separate command-line assignment for each module.
+         output.push_str(&format!("kernel.module_blacklist = \"{value}\"\n"));
+     }
+-    // Block-form blacklists bypass the line merger and cannot safely be
+-    // combined with its single canonical assignment.
+-    let config = parse_text(&output)?;
+-    let blacklists = config
+-        .kernel
+-        .iter()
+-        .filter(|p| matches!(p.name.as_str(), "module_blacklist" | "module-blacklist"))
+-        .collect::<Vec<_>>();
+-    ensure!(
+-        blacklists.is_empty()
+-            || (!modules.is_empty() && blacklists.len() == 1 && blacklists[0].value.is_some()),
+-        error::InvalidBlacklistFormSnafu
+-    );
+     Ok(output)
+ }
+ 
+diff --git a/tools/bootconfig/src/test_lib.rs b/tools/bootconfig/src/test_lib.rs
+index 3597e39..176bd66 100644
+--- a/tools/bootconfig/src/test_lib.rs
++++ b/tools/bootconfig/src/test_lib.rs
+@@ -127,6 +127,7 @@ fn rejects_empty_or_malformed_blacklist_assignments() {
+         "kernel.module_blacklist += binfmt_misc",
+         "kernel.module_blacklist",
+         "kernel { module_blacklist = i8042 }",
++        "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = i8042",
+     ] {
+         assert!(merge_blacklisted_modules(input).is_err(), "{input}");
+     }

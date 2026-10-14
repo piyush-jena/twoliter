@@ -1,0 +1,536 @@
+{
+  "local_pr5": "33dbf4bab8ea5810803f05cb7c5d184041be6cf0",
+  "local_pr6": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "grammar_bytes_unchanged": true,
+  "implementation_files_compared_per_image_input": 62,
+  "artifact_count": 386,
+  "artifact_bytes_hashed": 14225226110,
+  "ssm_invocations_checked": 146,
+  "rows": [
+    {
+      "variant": "aws-ecs-3",
+      "build_id": "f0273379-3f36-4fc1-bb4c-2b687c7cf0d6",
+      "ami": "ami-04e6a5f5ac705d24f",
+      "instance": "i-0d8de2e0e5c7a41c0",
+      "comparisons": 24,
+      "cmdline_bytes": 760,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {
+        "sha256": "27f6232b3aa7149e85af0407af79e25b6cc4cf8f455fa5381cd0c2659dc52134",
+        "sha384": "d99dc4d24377e2649a404279bf5c29a064cfe087c7e6c072afd123461d3650d1b1df284b35a628822746bfe6c6b86083"
+      },
+      "verified": true
+    },
+    {
+      "variant": "aws-ecs-3-fips",
+      "build_id": "28345af2-68a8-4685-bfc0-517f9c11aa62",
+      "ami": "ami-0cb466f09ddc54edb",
+      "instance": "i-072638ca96ffbd2e5",
+      "comparisons": 24,
+      "cmdline_bytes": 797,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {
+        "sha256": "01d794d4ae757d7ffeee628b01a95c32707b147ebae87d09da651200134b7043",
+        "sha384": "994a9ea94acd42779e495e239d43dd60499cb6368090bcaccd6115b7a586e14305989c11c3f8351d0506b0f1c0cf5a55"
+      },
+      "verified": true
+    },
+    {
+      "variant": "aws-ecs-3-nvidia",
+      "build_id": "ed68dd56-2258-4399-93c9-eaa7f83d85d6",
+      "ami": "ami-04a0f6f02cf1c6864",
+      "instance": "i-0e38c23bfc3565904",
+      "comparisons": 24,
+      "cmdline_bytes": 762,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {
+        "sha256": "13bedb0715ab7bc344e26bbdbeab383b62cae248c5cc4814d82227bd7e48aaf9",
+        "sha384": "637925e272b5525896b4a113132a8b1c0915d71a275c47d01e083a80b802c7bc7826e46885ba834d90f79a941eb4cd5e"
+      },
+      "verified": true
+    },
+    {
+      "variant": "aws-ecs-3-nvidia-fips",
+      "build_id": "46809d24-552d-423e-bf40-eaf55642045a",
+      "ami": "ami-04da6f2ab03f37052",
+      "instance": "i-0d675caf3f5902aed",
+      "comparisons": 24,
+      "cmdline_bytes": 799,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {
+        "sha256": "3738c6f639b30453f541652d0bbd5054e81b688c99f3d8cadeb70ae7c2f1239d",
+        "sha384": "db0d744ecb77c191c7de8282555f98887d4d52a53a91f8c2e8b200e4f18ba1fdaa05b1f49325bd881857c237e9d27fad"
+      },
+      "verified": true
+    },
+    {
+      "variant": "aws-ecs-4",
+      "build_id": "07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56",
+      "ami": "ami-0209b72b06de0b6f6",
+      "instance": "i-0b691843d806f06bc",
+      "comparisons": 24,
+      "cmdline_bytes": 760,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {
+        "sha256": "20c4814dc8c39ad1f6354802f3f9fe9a8a20137da893c5cc317a0c3a7b75d4c4",
+        "sha384": "4ae4eac99e6569cdf3994b0f34b78754a3964231b7799185994a6f9e7606d284696b96a325949d9ee0ebda88c0051b3c"
+      },
+      "verified": true
+    },
+    {
+      "variant": "aws-ecs-4-nvidia",
+      "build_id": "4421e328-02b5-437e-a24a-84e2b871d2c2",
+      "ami": "ami-02f1acf56cc89115c",
+      "instance": "i-0c24dea93544ba99a",
+      "comparisons": 24,
+      "cmdline_bytes": 762,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {
+        "sha256": "1d5da91b57f0d573d4fb6f3087df5ec4591f2455f9a2dc94f3681dcae0163e07",
+        "sha384": "4b158192189b7b8d2fab3728c9d9c797f573965e05267a16723345a965d1c63e3d41af31308676691104923d8df25be3"
+      },
+      "verified": true
+    },
+    {
+      "variant": "aws-mantle-1",
+      "build_id": "2bbc9163-1a48-4c11-8303-45b99e671b39",
+      "ami": "ami-0e89c2e4b400118a8",
+      "instance": "i-0c1e6db9fcb23bdd4",
+      "comparisons": 28,
+      "cmdline_bytes": 820,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {},
+      "verified": true
+    },
+    {
+      "variant": "aws-mantle-1-fips",
+      "build_id": "e365f3c2-d085-4b61-b7ef-32fb59687d78",
+      "ami": "ami-0d430eed38c01e49c",
+      "instance": "i-0991c697890b79d01",
+      "comparisons": 28,
+      "cmdline_bytes": 857,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {},
+      "verified": true
+    },
+    {
+      "variant": "aws-mantle-1-nvidia",
+      "build_id": "0346b16c-3d8a-4c94-b242-2ceb97b4c395",
+      "ami": "ami-0abcfa155905267d3",
+      "instance": "i-0f2809d6dec73df3d",
+      "comparisons": 28,
+      "cmdline_bytes": 822,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {},
+      "verified": true
+    },
+    {
+      "variant": "aws-mantle-1-nvidia-fips",
+      "build_id": "0ca29c05-e38b-4d60-916f-d44be1e37177",
+      "ami": "ami-0b00bbba9be690efa",
+      "instance": "i-07a548c96b0845c0c",
+      "comparisons": 28,
+      "cmdline_bytes": 859,
+      "common_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "separate_pcr9_diagnostics": {},
+      "verified": true
+    }
+  ],
+  "generated_comparisons": 256,
+  "separate_pcr9_diagnostics": 12,
+  "read_only": true
+}

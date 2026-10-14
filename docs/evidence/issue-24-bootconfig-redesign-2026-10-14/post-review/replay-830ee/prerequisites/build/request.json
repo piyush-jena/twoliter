@@ -1,0 +1,8 @@
+{
+  "target": "twoliter",
+  "arch": "x86_64",
+  "reason": "Post-review F1 fix: validate retained malformed blacklist forms before canonical append; repeat affected validation.",
+  "testing": "Final release tools for replay against ten retained raw images and captured live PCRs.",
+  "last_change": "830ee97501b0 moves blacklist form validation before append and adds a regression; valid formatting/parser/PCR behavior is unchanged.",
+  "twoliter_revision": "830ee97501b05adbf6dc76d13383643e440a6002"
+}

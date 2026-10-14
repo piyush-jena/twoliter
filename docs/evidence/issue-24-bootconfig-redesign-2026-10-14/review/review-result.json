@@ -1,0 +1,42 @@
+{
+  "review_complete": true,
+  "review_rounds": 1,
+  "local_pr5": "33dbf4bab8ea5810803f05cb7c5d184041be6cf0",
+  "local_pr6": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "findings": [
+    {
+      "id": "F1",
+      "category": "correctness",
+      "title": "Validate blacklist form before last-value coalescing",
+      "path": "tools/bootconfig/src/lib.rs",
+      "line": 159,
+      "also_relevant": "tools/bootconfig/src/parsers/bootconfig.rs:33",
+      "evidence": [
+        "mixed.probe.json",
+        "block-only.probe.json",
+        "canonical.probe.json"
+      ],
+      "action": "Validate unmerged blacklist occurrences before canonical append/coalescing; add mixed block/assignment regression without reinstating general duplicate rejection."
+    }
+  ],
+  "matrix_evidence_recheck": {
+    "rows": 10,
+    "generated_matches": 256,
+    "per_bank": 128,
+    "separate_grub_pcr9_matches": 12,
+    "cmdline_exact_matches": 10
+  },
+  "review": "REVIEW.md",
+  "source_edits": false,
+  "network_calls": false,
+  "publication": false,
+  "aws_mutations": false,
+  "publication_selection_checked": {
+    "bundle_manifest_sha256": "e895620eaeb5e42211d093fee5e27a8959f2bdd02ce01694cff7f5edbf793b5c",
+    "bundle_files_verified": 1134,
+    "publication_selection_files_verified": 42,
+    "all_ten_row_consoles_comparisons_expected_bytes_equal_canonical": true,
+    "proposed_reports_read": true,
+    "additional_actionable_findings": []
+  }
+}

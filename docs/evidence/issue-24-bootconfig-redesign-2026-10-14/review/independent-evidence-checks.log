@@ -1,0 +1,10 @@
+aws-ecs-3 24 PCR comparisons, exact bytes 760 verified
+aws-ecs-3-fips 24 PCR comparisons, exact bytes 797 verified
+aws-ecs-3-nvidia 24 PCR comparisons, exact bytes 762 verified
+aws-ecs-3-nvidia-fips 24 PCR comparisons, exact bytes 799 verified
+aws-ecs-4 24 PCR comparisons, exact bytes 760 verified
+aws-ecs-4-nvidia 24 PCR comparisons, exact bytes 762 verified
+aws-mantle-1 28 PCR comparisons, exact bytes 820 verified
+aws-mantle-1-fips 28 PCR comparisons, exact bytes 857 verified
+aws-mantle-1-nvidia 28 PCR comparisons, exact bytes 822 verified
+aws-mantle-1-nvidia-fips 28 PCR comparisons, exact bytes 859 verified

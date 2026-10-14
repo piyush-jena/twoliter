@@ -1,0 +1,39 @@
+{
+  "helpers": {
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/bootstrap.py": "b76998fd1b0f360ac82ffdd8f4365b1bc734f6600b06c85525f37bc27d703988",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/common.py": "a48de33006f0504bbb23250379076bea9a45a1399555cc43ebb5f9ae1e79f5b8",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/continue.py": "910595a5b1310e529b3c4dfd75ea515d28f0f62125419a2edf4fdf424a917f67",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/inspect-uki.py": "098b6e89f95ab6620c52940bf92e6800212848a17ce0b214ca0c8fddc66e40e2",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/prerequisites.py": "8ee969267e42505c00d939b9f5b8ccfd9dac803e2a1a64420b9f8e10d1522c51",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist.py": "dd186aef1bdc38eecf85acdb0d1f4ff6cc0ff662bc91b99ed0fd6db3b7ee9ce4",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/replay.py": "64f54918f9e81ca59b57b6e899cf0ae37b033dfea7f0fb40e4aeabcb40873804",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/report.py": "19c997a9f7b5d96cb24cf0dff23a9a0c73da16a2f069bf5b896e128e19e7cf01",
+    "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/verify-blacklist-fix.py": "ae422842d41fe1727f53bc9d143a683ce585e1bcc684c32f443fd5e501678470"
+  },
+  "original_matrix_inputs_sha256": "9e54b37d452447eb0f32e2e4574e7524efeed24abf62a8189423fe3a648cd4b4",
+  "original_matrix_summary_sha256": "30857845a60665b4843be21f0496be2531cf0fd3b1ce967c005c099c8775a0db",
+  "original_bundle_manifest_sha256": "e895620eaeb5e42211d093fee5e27a8959f2bdd02ce01694cff7f5edbf793b5c",
+  "gates": {
+    "check": {
+      "build_id": "db4488ec-2f2c-4b2e-a2eb-55eba2d4879c",
+      "result_sha256": "82512d279b3b3d6178488e42e4d240363efaafd9a5de7fe46fd199c18201b4d0",
+      "log_path": "/home/fedora/Repositories/symphony/.symphony/builds/db4488ec-2f2c-4b2e-a2eb-55eba2d4879c/build.log",
+      "log_sha256": "d0bf2da88b63620e09095c6d543679cb762b651c52841ab798208dd1625e7778",
+      "collection_receipt_sha256": "78b06c11f6bdbdf94f83fa7cf3178e8e5e4e76d8b5149defde10e6fe35d8944a"
+    },
+    "integ": {
+      "build_id": "262e26dd-c593-4914-8380-e37ba38b03ab",
+      "result_sha256": "615ae4c07d2027c70e4b5451d614f029896209439cec6026ca6e6ebe4d66f388",
+      "log_path": "/home/fedora/Repositories/symphony/.symphony/builds/262e26dd-c593-4914-8380-e37ba38b03ab/build.log",
+      "log_sha256": "4996d5ed996db250cf48688dd2de6381da78f6783464cd595c8cbe7949f5d22f",
+      "collection_receipt_sha256": "dce62ea1c582274a6fa0240a5786727e1efa62ad60bdc9f763840b76d19afe19"
+    },
+    "build": {
+      "build_id": "5ad7e47f-9ebb-4d10-b076-fdad6c8fc04c",
+      "result_sha256": "749d23fcfaf32986e9f1bbbc431384d6980b333091fa57c79083ea026585eb1a",
+      "log_path": "/home/fedora/Repositories/symphony/.symphony/builds/5ad7e47f-9ebb-4d10-b076-fdad6c8fc04c/build.log",
+      "log_sha256": "ba3a59a0e57b5f6a3623cda12e0441bd19b97733cc759c5d3134d0478b91c913",
+      "collection_receipt_sha256": "1cab66950ce448ad62d8d827bffe2bfc27480fb4a39a9d003fa6e90185f5cdcf"
+    }
+  }
+}

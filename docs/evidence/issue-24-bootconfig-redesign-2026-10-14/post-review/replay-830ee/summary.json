@@ -1,0 +1,983 @@
+{
+  "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "all_passed": true,
+  "generated_comparisons": 256,
+  "generated_matches": 256,
+  "grub_pcr9_comparisons": 12,
+  "new_image_builds": 0,
+  "new_boots": 0,
+  "new_cloud_queries": 0,
+  "rows": [
+    {
+      "variant": "aws-ecs-3",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "f0273379-3f36-4fc1-bb4c-2b687c7cf0d6",
+      "ami_id": "ami-04e6a5f5ac705d24f",
+      "instance_id": "i-0d8de2e0e5c7a41c0",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6",
+      "original_comparison_sha256": "5d316c709fab85f9d41075004d0ca7e50a0caca34efef7a04618fa44c894632d",
+      "final_prediction_sha256": "58c739eabb98dcc165d464d4e5e7804930db044a0b4910471db6a72dda5da6ca",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6/pcr-predictions.json",
+          "sha256": "58c739eabb98dcc165d464d4e5e7804930db044a0b4910471db6a72dda5da6ca",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6/disk-predictions.stdout",
+          "sha256": "58c739eabb98dcc165d464d4e5e7804930db044a0b4910471db6a72dda5da6ca",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3/f0273379-3f36-4fc1-bb4c-2b687c7cf0d6/live/ami-predictions.stdout",
+          "sha256": "58c739eabb98dcc165d464d4e5e7804930db044a0b4910471db6a72dda5da6ca",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 760,
+      "cmdline_sha256": "6b6d3f3ec78197b889b322521ad176174c478a02a5642c908e7853bb6db400e7",
+      "cmdline_matches_recorded": true,
+      "boot_path": "grub",
+      "banks": {
+        "sha256": {
+          "matches": 12,
+          "comparisons": 12
+        },
+        "sha384": {
+          "matches": 12,
+          "comparisons": 12
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {
+        "sha256": {
+          "final_formatter_prediction": "27f6232b3aa7149e85af0407af79e25b6cc4cf8f455fa5381cd0c2659dc52134",
+          "recorded_pcr9": "27f6232b3aa7149e85af0407af79e25b6cc4cf8f455fa5381cd0c2659dc52134",
+          "match": true
+        },
+        "sha384": {
+          "final_formatter_prediction": "d99dc4d24377e2649a404279bf5c29a064cfe087c7e6c072afd123461d3650d1b1df284b35a628822746bfe6c6b86083",
+          "recorded_pcr9": "d99dc4d24377e2649a404279bf5c29a064cfe087c7e6c072afd123461d3650d1b1df284b35a628822746bfe6c6b86083",
+          "match": true
+        }
+      },
+      "recorded_boot_id": "451c7018-25f7-480f-8162-41e241045c7c",
+      "pcr_invocation_sha256": "cf14f85bf0544d1d34bfbf5aa72113f7ad702235a95981bbc13771e0e6e8a992",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-ecs-3-fips",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "28345af2-68a8-4685-bfc0-517f9c11aa62",
+      "ami_id": "ami-0cb466f09ddc54edb",
+      "instance_id": "i-072638ca96ffbd2e5",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-fips/28345af2-68a8-4685-bfc0-517f9c11aa62",
+      "original_comparison_sha256": "474aa7a92bb0360c65725fe8e7d832ff5b67ce3163fb5a64e489eef875fc0c07",
+      "final_prediction_sha256": "1369495f2813555eef89b528bdb5e9cba4667d1021d3c9346fddb919c1bbd6b2",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-fips/28345af2-68a8-4685-bfc0-517f9c11aa62/pcr-predictions.json",
+          "sha256": "1369495f2813555eef89b528bdb5e9cba4667d1021d3c9346fddb919c1bbd6b2",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-fips/28345af2-68a8-4685-bfc0-517f9c11aa62/disk-predictions.stdout",
+          "sha256": "1369495f2813555eef89b528bdb5e9cba4667d1021d3c9346fddb919c1bbd6b2",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-fips/28345af2-68a8-4685-bfc0-517f9c11aa62/live/ami-predictions.stdout",
+          "sha256": "1369495f2813555eef89b528bdb5e9cba4667d1021d3c9346fddb919c1bbd6b2",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 797,
+      "cmdline_sha256": "cfc3ab863df91c4796cdfdb3efd1a8815e394abd4022974ba349aa25489a7b5e",
+      "cmdline_matches_recorded": true,
+      "boot_path": "grub",
+      "banks": {
+        "sha256": {
+          "matches": 12,
+          "comparisons": 12
+        },
+        "sha384": {
+          "matches": 12,
+          "comparisons": 12
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {
+        "sha256": {
+          "final_formatter_prediction": "01d794d4ae757d7ffeee628b01a95c32707b147ebae87d09da651200134b7043",
+          "recorded_pcr9": "01d794d4ae757d7ffeee628b01a95c32707b147ebae87d09da651200134b7043",
+          "match": true
+        },
+        "sha384": {
+          "final_formatter_prediction": "994a9ea94acd42779e495e239d43dd60499cb6368090bcaccd6115b7a586e14305989c11c3f8351d0506b0f1c0cf5a55",
+          "recorded_pcr9": "994a9ea94acd42779e495e239d43dd60499cb6368090bcaccd6115b7a586e14305989c11c3f8351d0506b0f1c0cf5a55",
+          "match": true
+        }
+      },
+      "recorded_boot_id": "4f409908-4b31-414e-9280-c8fc093d269e",
+      "pcr_invocation_sha256": "13dcd1a4947099a1c662255abeaa5ec5adec3bde75c565336ce7b1152a07f148",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-ecs-3-nvidia",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "ed68dd56-2258-4399-93c9-eaa7f83d85d6",
+      "ami_id": "ami-04a0f6f02cf1c6864",
+      "instance_id": "i-0e38c23bfc3565904",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia/ed68dd56-2258-4399-93c9-eaa7f83d85d6",
+      "original_comparison_sha256": "a7f7545beb247ccf2596c54bc990da1ec0cb82dd16d2d6304604ea8ba4082c8d",
+      "final_prediction_sha256": "b2f2a457ed38c7cb35ca5d8390e3bfad44b2b85a82469bf2d6256e489e23639a",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia/ed68dd56-2258-4399-93c9-eaa7f83d85d6/pcr-predictions.json",
+          "sha256": "b2f2a457ed38c7cb35ca5d8390e3bfad44b2b85a82469bf2d6256e489e23639a",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia/ed68dd56-2258-4399-93c9-eaa7f83d85d6/disk-predictions.stdout",
+          "sha256": "b2f2a457ed38c7cb35ca5d8390e3bfad44b2b85a82469bf2d6256e489e23639a",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia/ed68dd56-2258-4399-93c9-eaa7f83d85d6/live/ami-predictions.stdout",
+          "sha256": "b2f2a457ed38c7cb35ca5d8390e3bfad44b2b85a82469bf2d6256e489e23639a",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 762,
+      "cmdline_sha256": "01fae88422a3083b635c977c0cc024c64df3b86adcd4d94d6d80ed52e3bec8ba",
+      "cmdline_matches_recorded": true,
+      "boot_path": "grub",
+      "banks": {
+        "sha256": {
+          "matches": 12,
+          "comparisons": 12
+        },
+        "sha384": {
+          "matches": 12,
+          "comparisons": 12
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {
+        "sha256": {
+          "final_formatter_prediction": "13bedb0715ab7bc344e26bbdbeab383b62cae248c5cc4814d82227bd7e48aaf9",
+          "recorded_pcr9": "13bedb0715ab7bc344e26bbdbeab383b62cae248c5cc4814d82227bd7e48aaf9",
+          "match": true
+        },
+        "sha384": {
+          "final_formatter_prediction": "637925e272b5525896b4a113132a8b1c0915d71a275c47d01e083a80b802c7bc7826e46885ba834d90f79a941eb4cd5e",
+          "recorded_pcr9": "637925e272b5525896b4a113132a8b1c0915d71a275c47d01e083a80b802c7bc7826e46885ba834d90f79a941eb4cd5e",
+          "match": true
+        }
+      },
+      "recorded_boot_id": "0a63f657-fd93-47a6-a12c-bbf140e4b7e8",
+      "pcr_invocation_sha256": "7745880b03908a4daba80d1b8e628d699abb46d7d0fc4fb51d2cd5cd04219a2f",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-ecs-3-nvidia-fips",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "46809d24-552d-423e-bf40-eaf55642045a",
+      "ami_id": "ami-04da6f2ab03f37052",
+      "instance_id": "i-0d675caf3f5902aed",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia-fips/46809d24-552d-423e-bf40-eaf55642045a",
+      "original_comparison_sha256": "f09effb06d2359af075cf20f50ff20ca168a53f90216109a2a7a8cb6c7f4f47b",
+      "final_prediction_sha256": "f8872ba479e4cebcc406e2e5066aa75c6eb9a6941c4049d0db5af2ec439fde78",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia-fips/46809d24-552d-423e-bf40-eaf55642045a/pcr-predictions.json",
+          "sha256": "f8872ba479e4cebcc406e2e5066aa75c6eb9a6941c4049d0db5af2ec439fde78",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia-fips/46809d24-552d-423e-bf40-eaf55642045a/disk-predictions.stdout",
+          "sha256": "f8872ba479e4cebcc406e2e5066aa75c6eb9a6941c4049d0db5af2ec439fde78",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-3-nvidia-fips/46809d24-552d-423e-bf40-eaf55642045a/live/ami-predictions.stdout",
+          "sha256": "f8872ba479e4cebcc406e2e5066aa75c6eb9a6941c4049d0db5af2ec439fde78",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 799,
+      "cmdline_sha256": "c0ca0a08041d3e5809eee1dded19dc4eccaabf353beebf7c75efd33df02807b4",
+      "cmdline_matches_recorded": true,
+      "boot_path": "grub",
+      "banks": {
+        "sha256": {
+          "matches": 12,
+          "comparisons": 12
+        },
+        "sha384": {
+          "matches": 12,
+          "comparisons": 12
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {
+        "sha256": {
+          "final_formatter_prediction": "3738c6f639b30453f541652d0bbd5054e81b688c99f3d8cadeb70ae7c2f1239d",
+          "recorded_pcr9": "3738c6f639b30453f541652d0bbd5054e81b688c99f3d8cadeb70ae7c2f1239d",
+          "match": true
+        },
+        "sha384": {
+          "final_formatter_prediction": "db0d744ecb77c191c7de8282555f98887d4d52a53a91f8c2e8b200e4f18ba1fdaa05b1f49325bd881857c237e9d27fad",
+          "recorded_pcr9": "db0d744ecb77c191c7de8282555f98887d4d52a53a91f8c2e8b200e4f18ba1fdaa05b1f49325bd881857c237e9d27fad",
+          "match": true
+        }
+      },
+      "recorded_boot_id": "ca3293c2-f03a-4f99-8195-ece510361820",
+      "pcr_invocation_sha256": "2b268bb50cecaf9daf31a88bb5144910c06d4b10a6375a0b9b1a443be6db9b3a",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-ecs-4",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56",
+      "ami_id": "ami-0209b72b06de0b6f6",
+      "instance_id": "i-0b691843d806f06bc",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56",
+      "original_comparison_sha256": "20e4a5b1a7548b87dde42b51c94e1922eca8022af6780ad34fe66b3d3cab8daa",
+      "final_prediction_sha256": "25268712e318bbf46518f90d3736ab9b4d902e5324e8e67426cae9c319ff379f",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56/pcr-predictions.json",
+          "sha256": "25268712e318bbf46518f90d3736ab9b4d902e5324e8e67426cae9c319ff379f",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56/disk-predictions.stdout",
+          "sha256": "25268712e318bbf46518f90d3736ab9b4d902e5324e8e67426cae9c319ff379f",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4/07956bd2-e76b-4cd9-a14a-b9a4e5d4aa56/live/ami-predictions.stdout",
+          "sha256": "25268712e318bbf46518f90d3736ab9b4d902e5324e8e67426cae9c319ff379f",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 760,
+      "cmdline_sha256": "b24dfceabae9d606b4f8e204f9a62dd26496d2d2e0382dc9bbccbc31f03736be",
+      "cmdline_matches_recorded": true,
+      "boot_path": "grub",
+      "banks": {
+        "sha256": {
+          "matches": 12,
+          "comparisons": 12
+        },
+        "sha384": {
+          "matches": 12,
+          "comparisons": 12
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {
+        "sha256": {
+          "final_formatter_prediction": "20c4814dc8c39ad1f6354802f3f9fe9a8a20137da893c5cc317a0c3a7b75d4c4",
+          "recorded_pcr9": "20c4814dc8c39ad1f6354802f3f9fe9a8a20137da893c5cc317a0c3a7b75d4c4",
+          "match": true
+        },
+        "sha384": {
+          "final_formatter_prediction": "4ae4eac99e6569cdf3994b0f34b78754a3964231b7799185994a6f9e7606d284696b96a325949d9ee0ebda88c0051b3c",
+          "recorded_pcr9": "4ae4eac99e6569cdf3994b0f34b78754a3964231b7799185994a6f9e7606d284696b96a325949d9ee0ebda88c0051b3c",
+          "match": true
+        }
+      },
+      "recorded_boot_id": "9043f02b-58bf-48ce-8539-83e473500f10",
+      "pcr_invocation_sha256": "17090dd4ac0126f281263802b880d427af6dfa8247ccd82963fb67beae1c8f5c",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-ecs-4-nvidia",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "4421e328-02b5-437e-a24a-84e2b871d2c2",
+      "ami_id": "ami-02f1acf56cc89115c",
+      "instance_id": "i-0c24dea93544ba99a",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4-nvidia/4421e328-02b5-437e-a24a-84e2b871d2c2",
+      "original_comparison_sha256": "5b29a78220435f87ebe54daec964750bcc6dffd11bf6f9d1e785479141aac56a",
+      "final_prediction_sha256": "efe505e17d8a4d10197ffd542133832e5f447007809ca164b81ad13779569c1e",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4-nvidia/4421e328-02b5-437e-a24a-84e2b871d2c2/pcr-predictions.json",
+          "sha256": "efe505e17d8a4d10197ffd542133832e5f447007809ca164b81ad13779569c1e",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4-nvidia/4421e328-02b5-437e-a24a-84e2b871d2c2/disk-predictions.stdout",
+          "sha256": "efe505e17d8a4d10197ffd542133832e5f447007809ca164b81ad13779569c1e",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-ecs-4-nvidia/4421e328-02b5-437e-a24a-84e2b871d2c2/live/ami-predictions.stdout",
+          "sha256": "efe505e17d8a4d10197ffd542133832e5f447007809ca164b81ad13779569c1e",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 762,
+      "cmdline_sha256": "e6b8f0860196c35085662ffc6fb0c3e9c4489bdff2a6aaaeddb2b3085c6a84ef",
+      "cmdline_matches_recorded": true,
+      "boot_path": "grub",
+      "banks": {
+        "sha256": {
+          "matches": 12,
+          "comparisons": 12
+        },
+        "sha384": {
+          "matches": 12,
+          "comparisons": 12
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "5": [
+          12
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {
+        "sha256": {
+          "final_formatter_prediction": "1d5da91b57f0d573d4fb6f3087df5ec4591f2455f9a2dc94f3681dcae0163e07",
+          "recorded_pcr9": "1d5da91b57f0d573d4fb6f3087df5ec4591f2455f9a2dc94f3681dcae0163e07",
+          "match": true
+        },
+        "sha384": {
+          "final_formatter_prediction": "4b158192189b7b8d2fab3728c9d9c797f573965e05267a16723345a965d1c63e3d41af31308676691104923d8df25be3",
+          "recorded_pcr9": "4b158192189b7b8d2fab3728c9d9c797f573965e05267a16723345a965d1c63e3d41af31308676691104923d8df25be3",
+          "match": true
+        }
+      },
+      "recorded_boot_id": "5b1ebc44-3bf4-4661-97fc-84e26af62e39",
+      "pcr_invocation_sha256": "524f3aca347421581b4f8adb27846db93b4b2469e7f253aa78a3867d246c947d",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-mantle-1",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "2bbc9163-1a48-4c11-8303-45b99e671b39",
+      "ami_id": "ami-0e89c2e4b400118a8",
+      "instance_id": "i-0c1e6db9fcb23bdd4",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1/2bbc9163-1a48-4c11-8303-45b99e671b39",
+      "original_comparison_sha256": "7d074b6326a8d06339d4b9617fd7e51f3801aee38208afeeee196a0169e826cb",
+      "final_prediction_sha256": "5e26697ca3940491cdd928a432a7d93ac9007ef1c2cae95b6c3270cb4ec9d16e",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1/2bbc9163-1a48-4c11-8303-45b99e671b39/pcr-predictions.json",
+          "sha256": "5e26697ca3940491cdd928a432a7d93ac9007ef1c2cae95b6c3270cb4ec9d16e",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1/2bbc9163-1a48-4c11-8303-45b99e671b39/disk-predictions.stdout",
+          "sha256": "5e26697ca3940491cdd928a432a7d93ac9007ef1c2cae95b6c3270cb4ec9d16e",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1/2bbc9163-1a48-4c11-8303-45b99e671b39/live/ami-predictions.stdout",
+          "sha256": "5e26697ca3940491cdd928a432a7d93ac9007ef1c2cae95b6c3270cb4ec9d16e",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 820,
+      "cmdline_sha256": "4af150327d4437fd77d76034f563471244d48a73923afbdbfc08e52ef6bfb54f",
+      "cmdline_matches_recorded": true,
+      "boot_path": "uki",
+      "banks": {
+        "sha256": {
+          "matches": 14,
+          "comparisons": 14
+        },
+        "sha384": {
+          "matches": 14,
+          "comparisons": 14
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {},
+      "recorded_boot_id": "e8c51452-6cb5-4730-8f89-0c4a2f75a513",
+      "pcr_invocation_sha256": "a6eecf28e236c077cb3bbdae3718446e05a29d3212ca4f006163f7c0d0e0ccb4",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-mantle-1-fips",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "e365f3c2-d085-4b61-b7ef-32fb59687d78",
+      "ami_id": "ami-0d430eed38c01e49c",
+      "instance_id": "i-0991c697890b79d01",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-fips/e365f3c2-d085-4b61-b7ef-32fb59687d78",
+      "original_comparison_sha256": "843c1800824cdc531288eb6c18d5d11b36a79a4670330292ab4aadeef40d9de1",
+      "final_prediction_sha256": "6be292aec3870ce238f9c247a30dd853005fd73f8120bd60ba322fea0f264f8d",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-fips/e365f3c2-d085-4b61-b7ef-32fb59687d78/pcr-predictions.json",
+          "sha256": "6be292aec3870ce238f9c247a30dd853005fd73f8120bd60ba322fea0f264f8d",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-fips/e365f3c2-d085-4b61-b7ef-32fb59687d78/disk-predictions.stdout",
+          "sha256": "6be292aec3870ce238f9c247a30dd853005fd73f8120bd60ba322fea0f264f8d",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-fips/e365f3c2-d085-4b61-b7ef-32fb59687d78/live/ami-predictions.stdout",
+          "sha256": "6be292aec3870ce238f9c247a30dd853005fd73f8120bd60ba322fea0f264f8d",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 857,
+      "cmdline_sha256": "bbd6154a7f9cc0da6bcee1f41fce38115bdf2b338386ed7b7fe0242acfa38976",
+      "cmdline_matches_recorded": true,
+      "boot_path": "uki",
+      "banks": {
+        "sha256": {
+          "matches": 14,
+          "comparisons": 14
+        },
+        "sha384": {
+          "matches": 14,
+          "comparisons": 14
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {},
+      "recorded_boot_id": "acb0bb1e-ad3d-4445-b7b2-ce39346d5b52",
+      "pcr_invocation_sha256": "50a9b6c04b162900d74927f8f7c31dd676c0dd0dd2e83d811eb9a496eb70d759",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-mantle-1-nvidia",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "0346b16c-3d8a-4c94-b242-2ceb97b4c395",
+      "ami_id": "ami-0abcfa155905267d3",
+      "instance_id": "i-0f2809d6dec73df3d",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia/0346b16c-3d8a-4c94-b242-2ceb97b4c395",
+      "original_comparison_sha256": "8021015ed2dc0b5ac40ce8fe767cf0a4fb17b075f323c97ef3c28cedb69eb1eb",
+      "final_prediction_sha256": "256bdd204f714d69596094f8eb7f9faec258d01263fb2a5a292b31bc25ef3b3f",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia/0346b16c-3d8a-4c94-b242-2ceb97b4c395/pcr-predictions.json",
+          "sha256": "256bdd204f714d69596094f8eb7f9faec258d01263fb2a5a292b31bc25ef3b3f",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia/0346b16c-3d8a-4c94-b242-2ceb97b4c395/disk-predictions.stdout",
+          "sha256": "256bdd204f714d69596094f8eb7f9faec258d01263fb2a5a292b31bc25ef3b3f",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia/0346b16c-3d8a-4c94-b242-2ceb97b4c395/live/ami-predictions.stdout",
+          "sha256": "256bdd204f714d69596094f8eb7f9faec258d01263fb2a5a292b31bc25ef3b3f",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 822,
+      "cmdline_sha256": "bea8caf50b9ed3db0fc2019dfab0ee372192cbf81dd13a34190b1bcbc4e0fddc",
+      "cmdline_matches_recorded": true,
+      "boot_path": "uki",
+      "banks": {
+        "sha256": {
+          "matches": 14,
+          "comparisons": 14
+        },
+        "sha384": {
+          "matches": 14,
+          "comparisons": 14
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {},
+      "recorded_boot_id": "0fe74568-09d9-4974-9620-945aad3c9244",
+      "pcr_invocation_sha256": "7b91c47ff649194dff486141314bb8a73a6a03f630acc632accf8f67dea77a84",
+      "new_live_capture": false,
+      "passed": true
+    },
+    {
+      "variant": "aws-mantle-1-nvidia-fips",
+      "final_tool_revision": "830ee97501b05adbf6dc76d13383643e440a6002",
+      "live_image_revision": "09380d356886842b8987b602ed2ef7daaefec4f3",
+      "build_id": "0ca29c05-e38b-4d60-916f-d44be1e37177",
+      "ami_id": "ami-0b00bbba9be690efa",
+      "instance_id": "i-07a548c96b0845c0c",
+      "original_run": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia-fips/0ca29c05-e38b-4d60-916f-d44be1e37177",
+      "original_comparison_sha256": "a2f824932909501d489f2789306d17b6b3462e42ec0601d361a23f714e69175b",
+      "final_prediction_sha256": "4f24321242019e063f5b8bf83511d8c36b747bf0a028849a891b61fc1844d2c9",
+      "original_predictions": {
+        "generated": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia-fips/0ca29c05-e38b-4d60-916f-d44be1e37177/pcr-predictions.json",
+          "sha256": "4f24321242019e063f5b8bf83511d8c36b747bf0a028849a891b61fc1844d2c9",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "disk": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia-fips/0ca29c05-e38b-4d60-916f-d44be1e37177/disk-predictions.stdout",
+          "sha256": "4f24321242019e063f5b8bf83511d8c36b747bf0a028849a891b61fc1844d2c9",
+          "json_equal": true,
+          "bytes_equal": true
+        },
+        "direct_ami": {
+          "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/runs/aws-mantle-1-nvidia-fips/0ca29c05-e38b-4d60-916f-d44be1e37177/live/ami-predictions.stdout",
+          "sha256": "4f24321242019e063f5b8bf83511d8c36b747bf0a028849a891b61fc1844d2c9",
+          "json_equal": true,
+          "bytes_equal": true
+        }
+      },
+      "cmdline_bytes": 859,
+      "cmdline_sha256": "e078421d33dae97169554b535b352ed378ea9653d86b398d70d42d5c2262cceb",
+      "cmdline_matches_recorded": true,
+      "boot_path": "uki",
+      "banks": {
+        "sha256": {
+          "matches": 14,
+          "comparisons": 14
+        },
+        "sha384": {
+          "matches": 14,
+          "comparisons": 14
+        }
+      },
+      "common_prediction_states": {
+        "0": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ],
+        "7": [
+          0
+        ],
+        "9": [
+          0
+        ],
+        "10": [
+          0
+        ],
+        "11": [
+          4
+        ],
+        "12": [
+          0
+        ],
+        "13": [
+          0
+        ],
+        "14": [
+          0
+        ],
+        "15": [
+          0
+        ]
+      },
+      "grub_pcr9_diagnostics": {},
+      "recorded_boot_id": "4de2ac48-de39-4348-a135-5797231a73ff",
+      "pcr_invocation_sha256": "572de4c8b3f0b022c129a007d2943b6a73494d60c680b4ef1f0fe1aab24b6d95",
+      "new_live_capture": false,
+      "passed": true
+    }
+  ]
+}
