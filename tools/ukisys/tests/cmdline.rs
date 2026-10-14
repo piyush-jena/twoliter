@@ -71,8 +71,8 @@ fn merge_bootconfig_combines_dropins_in_place_and_preserves_failed_input() {
     assert_eq!(
         fs::read_to_string(&input).unwrap(),
         concat!(
-            "kernel.module_blacklist = \"binfmt_misc,i8042\"\n",
             "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\n",
+            "kernel.module_blacklist = \"binfmt_misc,i8042\"\n",
         )
     );
     let invalid = "kernel.module_blacklist = \"i8042,,binfmt_misc\"\n";
