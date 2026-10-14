@@ -1,17 +1,17 @@
 //! PCR 7: Secure Boot Policy
 
 use crate::efi::{
-    generate_efi_variable_data, EslHeader, EFI_GLOBAL_VARIABLE_GUID,
+    generate_efi_variable_data, EfiVars, EslHeader, EFI_GLOBAL_VARIABLE_GUID,
     EFI_IMAGE_SECURITY_DATABASE_GUID, SHIM_LOCK_GUID,
 };
 use crate::error::Result;
 use crate::pe::{extract_sbat_level, extract_vendor_cert};
 use crate::platform::Platform;
 use crate::predict::{
-    extend_pcr, extend_pcr_separator, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL,
+    extend_pcr_data, extend_pcr_separator, PcrContext, PcrDigests, PcrIndex, PcrRecord,
+    PCR_INIT_VAL,
 };
-use sha2::{Digest, Sha256};
-use snafu::{OptionExt, ResultExt};
+use snafu::{ensure_whatever, OptionExt, ResultExt};
 
 /// VMware SignatureOwner GUID used when enrolling Secure Boot keys via OVF.
 const VMWARE_SIGNATURE_OWNER_GUID: [u8; 16] = [
@@ -32,6 +32,12 @@ const VMWARE_SIGNATURE_OWNER_GUID: [u8; 16] = [
 /// - AWS/Metal: uses SignatureOwner GUID from efi-vars.json
 /// - VMware: uses VMware's SignatureOwner GUID for enrolled keys
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
+    if ctx.uki.is_some() {
+        return Ok(Some((
+            PcrIndex::Pcr7,
+            PcrRecord::new(predict_uki(ctx.efi_vars)?),
+        )));
+    }
     let vendor_cert = extract_vendor_cert(ctx.shim)?;
     let sbat_level = extract_sbat_level(ctx.shim)?;
 
@@ -95,28 +101,28 @@ fn predict_variant(
     dbx_data: &[u8],
     vendor_cert: &[u8],
     sbat_level: &[u8],
-) -> Result<[u8; 32]> {
+) -> Result<PcrDigests> {
     // 1. SecureBoot = 0x01
     let secure_boot_data =
         generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "SecureBoot", &[0x01]);
-    let mut pcr = extend_pcr(&PCR_INIT_VAL, &Sha256::digest(&secure_boot_data).into());
+    let mut pcr = extend_pcr_data(&PCR_INIT_VAL, &secure_boot_data);
 
     // 2. PK
     let pk_var_data = generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "PK", pk_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&pk_var_data).into());
+    pcr = extend_pcr_data(&pcr, &pk_var_data);
 
     // 3. KEK
     let kek_var_data = generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "KEK", kek_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&kek_var_data).into());
+    pcr = extend_pcr_data(&pcr, &kek_var_data);
 
     // 4. db
     let db_var_data = generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "db", db_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&db_var_data).into());
+    pcr = extend_pcr_data(&pcr, &db_var_data);
 
     // 5. dbx
     let dbx_var_data =
         generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "dbx", dbx_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&dbx_var_data).into());
+    pcr = extend_pcr_data(&pcr, &dbx_var_data);
 
     // 6. Separator
     pcr = extend_pcr_separator(&pcr);
@@ -126,17 +132,17 @@ fn predict_variant(
     // If multiple signature lists with different sizes exist, only the first is extracted.
     let db_sig = extract_first_sig_from_esl(db_data)?;
     let db_authority = generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "db", &db_sig);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&db_authority).into());
+    pcr = extend_pcr_data(&pcr, &db_authority);
 
     // 8. SbatLevel
     let sbat_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "SbatLevel", sbat_level);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&sbat_var_data).into());
+    pcr = extend_pcr_data(&pcr, &sbat_var_data);
 
     // 9. MokListRT - owner GUID + vendor certificate
     let mut mok_data = SHIM_LOCK_GUID.to_bytes_le().to_vec();
     mok_data.extend_from_slice(vendor_cert);
     let mok_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "MokListRT", &mok_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&mok_var_data).into());
+    pcr = extend_pcr_data(&pcr, &mok_var_data);
 
     Ok(pcr)
 }
@@ -164,6 +170,53 @@ fn extract_first_sig_from_esl(esl: &[u8]) -> Result<Vec<u8>> {
     let header = EslHeader::parse(esl)?;
     header.ensure_x509()?;
     Ok(esl[header.sig_start..header.sig_start + header.sig_size].to_vec())
+}
+
+fn predict_uki(vars: &EfiVars) -> Result<PcrDigests> {
+    let mut pcr = extend_pcr_data(
+        &PCR_INIT_VAL,
+        &generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "SecureBoot", &[1]),
+    );
+    for name in ["PK", "KEK", "db", "dbx"] {
+        ensure_whatever!(
+            vars.variables.iter().filter(|v| v.name == name).count() == 1,
+            "ambiguous EFI variable '{name}'"
+        );
+        let var = vars.get(name).whatever_context(format!("missing {name}"))?;
+        let guid = if matches!(name, "PK" | "KEK") {
+            &EFI_GLOBAL_VARIABLE_GUID
+        } else {
+            &EFI_IMAGE_SECURITY_DATABASE_GUID
+        };
+        pcr = extend_pcr_data(
+            &pcr,
+            &generate_efi_variable_data(
+                guid,
+                name,
+                &hex::decode(&var.data).whatever_context("invalid EFI variable hex")?,
+            ),
+        );
+    }
+    pcr = extend_pcr_separator(&pcr);
+    let db = hex::decode(&vars.get("db").whatever_context("missing db")?.data)
+        .whatever_context("invalid db hex")?;
+    let header = EslHeader::parse(&db)?;
+    header.ensure_x509()?;
+    let list_size = u32::from_le_bytes(db[16..20].try_into().unwrap()) as usize;
+    ensure_whatever!(
+        list_size == db.len()
+            && header.sig_size > 16
+            && header.sig_start + header.sig_size == db.len(),
+        "UKI requires one unambiguous db X.509 authority"
+    );
+    Ok(extend_pcr_data(
+        &pcr,
+        &generate_efi_variable_data(
+            &EFI_IMAGE_SECURITY_DATABASE_GUID,
+            "db",
+            &db[header.sig_start..],
+        ),
+    ))
 }
 
 #[cfg(test)]

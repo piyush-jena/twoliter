@@ -4,7 +4,7 @@ A TPM Platform Configuration Register (PCR) prediction tool for Bottlerocket.
 
 ## Overview
 
-`pcrsys` predicts TPM PCR values (SHA-256) for Bottlerocket images without requiring a running system. It analyzes disk images and EFI variables to compute what the PCR values would be after boot, enabling pre-registration of expected measurements for attestation policies.
+`pcrsys` predicts TPM PCR values (SHA-256 and SHA-384) for Bottlerocket images without requiring a running system. It analyzes disk images and EFI variables to compute what the PCR values would be after boot, enabling pre-registration of expected measurements for attestation policies.
 
 ## Usage
 
@@ -29,19 +29,27 @@ JSON output with predicted PCR values, keyed by PCR index:
 ```json
 {
   "pcrs": {
-    "0": { "sha256": ["<hex digest>"] },
-    "4": { "sha256": ["<hex digest>"] },
-    "7": { "sha256": ["<hex digest>"] }
+    "0": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] },
+    "4": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] },
+    "7": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] }
   }
 }
 ```
 
+Both banks are emitted by default for every predicted PCR, for GRUB and UKI
+images. Each bank hashes the original measured bytes and extends its own PCR
+value. Alternative values have the same ordering in both arrays, including GPT
+states and PCR 11 boot phases. Compare each prediction with the matching active
+TPM bank on the target machine.
+
 ## Supported PCRs
+
+The table below describes GRUB images. Direct UKI boot is described below.
 
 | PCR | Description |
 |-----|-------------|
 | 0 | Platform firmware (static per platform) |
-| 1 | Platform configuration (static per platform) |
+| 1 | Platform configuration (VMware only) |
 | 2 | Option ROM code (separator only) |
 | 3 | Option ROM configuration (separator only) |
 | 4 | Boot manager code (shim, grub, vmlinuz authenticode hashes) |
@@ -58,6 +66,9 @@ JSON output with predicted PCR values, keyed by PCR index:
 
 PCRs 4 and 9 are skipped for images with A/B boot partitions since the active kernel and root hash can change.
 
+On AWS, PCRs 1 and 8 are omitted for both boot paths because they depend on
+instance-specific firmware configuration and runtime OS settings.
+
 ## Supported Platforms
 
 - **aws**: AWS Nitro (EC2 instances)
@@ -65,6 +76,9 @@ PCRs 4 and 9 are skipped for images with A/B boot partitions since the active ke
 - **metal**: Bare metal servers
 
 Platform differences affect PCR 0, 1, 4, 5, and 7 calculations due to firmware behavior variations.
+
+SHA-384 validation currently covers AWS only. The VMware and metal SHA-384
+branches have no platform-specific expected-value tests or runtime qualification.
 
 ## Input Requirements
 
@@ -85,6 +99,29 @@ JSON file containing Secure Boot variables:
 
 ### Disk image
 
-GPT-partitioned disk image containing:
+For GRUB, a GPT-partitioned disk image containing:
+
 - EFI System Partition (FAT) with `/EFI/BOOT/boot{aa64,x64}.efi` (shim) and `grub{aa64,x64}.efi`
-- Boot partition (ext4) with `/vmlinuz`, `/grub.cfg`, and `/bootconfig.data`
+- Boot partition (ext4) with `/vmlinuz` and `/grub/grub.cfg`
+- PRIVATE partition (ext4) with `/bootconfig.data`
+
+## Direct UKI boot
+
+Both subcommands also support Bottlerocket Unified Kernel Images (UKIs) on AWS,
+for x86_64 and aarch64. The GPT image must contain one fallback executable at
+`/EFI/BOOT/boot{aa64,x64}.efi` on the ESP, with nonempty `.linux`, `.osrel`,
+`.cmdline`, and `.uname` sections. GRUB boot partitions must be absent; PRIVATE
+is not read.
+
+Direct UKI prediction on VMware or metal returns
+`direct UKI prediction supports AWS only`. Secure Boot UKI image builds and
+repacks for those platforms fail at the prediction step.
+
+Predictions include PCRs 0, 2-7, and 9-15. PCR 4 measures the whole UKI,
+PCR 7 uses the Secure Boot policy without shim events, PCR 9 measures EFI
+LoadOptions and the stub-generated os-release initrd, and PCR 11 measures UKI
+sections followed by boot phases. PCRs 10 and 12-15 are zero.
+
+PCR 11 values are ordered as sections measured, `sysinit`, `preconfigured`,
+`configured`, `ready`, `shutdown`, and `final`. Compare against the phase the
+running system has reached.
