@@ -1,6 +1,6 @@
 //! Pest parser for grub.cfg files.
 
-use crate::error::Result;
+use crate::error::{self, Result};
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -94,10 +94,10 @@ fn resolve_set_value(pair: Pair<'_, GrubRule>, variables: &HashMap<String, Strin
 
 /// Parse grub.cfg and extract the kernel command line with variables resolved.
 pub fn parse(grub_cfg: &[u8]) -> Result<String> {
-    let text = std::str::from_utf8(grub_cfg).whatever_context("grub.cfg is not valid UTF-8")?;
+    let text =
+        std::str::from_utf8(grub_cfg).context(error::InvalidUtf8Snafu { input: "grub.cfg" })?;
 
-    let pairs =
-        GrubParser::parse(GrubRule::config, text).whatever_context("failed to parse grub.cfg")?;
+    let pairs = GrubParser::parse(GrubRule::config, text).context(error::GrubParseSnafu)?;
 
     let mut variables: HashMap<String, String> = HashMap::new();
     let mut linux_args: Vec<String> = Vec::new();

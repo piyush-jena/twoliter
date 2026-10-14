@@ -20,7 +20,8 @@ pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
         return Ok(None);
     }
 
-    let mut cmdline = predict_cmdline(ctx.grub_cfg, ctx.bootconfig, Some(ctx.boot_partuuid))?;
+    let mut cmdline = predict_cmdline(ctx.grub_cfg, ctx.bootconfig, Some(ctx.boot_partuuid))
+        .whatever_context("failed to predict GRUB command line")?;
     cmdline.push('\n');
     let pcr9 = extend_pcr_string(&PCR_INIT_VAL, &cmdline);
     Ok(Some((PcrIndex::Pcr9, PcrRecord::new(pcr9))))

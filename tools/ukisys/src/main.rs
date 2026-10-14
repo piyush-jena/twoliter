@@ -65,11 +65,13 @@ fn main() -> Result<()> {
     let args = Args::parse();
     match &args.command {
         Command::MergeBootconfig { input, output } => {
-            let text = std::fs::read_to_string(input)
-                .with_whatever_context(|_| format!("Failed to read '{}'", input.display()))?;
-            let merged = bootconfig::merge_dropins(&text)?;
-            std::fs::write(output, merged)
-                .with_whatever_context(|_| format!("Failed to write '{}'", output.display()))
+            let text =
+                std::fs::read_to_string(input).context(error::FileReadSnafu { path: input })?;
+            let merged =
+                bootconfig::merge_blacklisted_modules(&text).context(error::BootconfigSnafu {
+                    operation: "merge bootconfig module blacklists",
+                })?;
+            std::fs::write(output, merged).context(error::FileWriteSnafu { path: output })
         }
         Command::DeriveStub { uki, stub } => derive_stub(uki, stub),
         Command::Cmdline {
@@ -78,31 +80,36 @@ fn main() -> Result<()> {
             init_args,
             output,
         } => {
-            let data = std::fs::read(bootconfig)
-                .with_whatever_context(|_| format!("Failed to read '{}'", bootconfig.display()))?;
-            let config = bootconfig::parse(&data)?;
-            let cmdline = config.uki_cmdline(kernel_args, init_args)?;
-            std::fs::write(output, cmdline)
-                .with_whatever_context(|_| format!("Failed to write '{}'", output.display()))
+            let data =
+                std::fs::read(bootconfig).context(error::FileReadSnafu { path: bootconfig })?;
+            let config = bootconfig::parse(&data).context(error::BootconfigSnafu {
+                operation: "decode bootconfig",
+            })?;
+            let cmdline =
+                config
+                    .uki_cmdline(kernel_args, init_args)
+                    .context(error::BootconfigSnafu {
+                        operation: "construct UKI command line",
+                    })?;
+            std::fs::write(output, cmdline).context(error::FileWriteSnafu { path: output })
         }
     }
 }
 
 fn derive_stub(uki_path: &Path, stub_path: &Path) -> Result<()> {
-    let mut image = PeImage::load(uki_path)
-        .with_whatever_context(|_| format!("Failed to parse UKI '{}'", uki_path.display()))?;
+    let mut image = PeImage::load(uki_path).context(error::UkiReadSnafu { path: uki_path })?;
 
     image
         .remove_signature()
-        .with_whatever_context(|_| "Failed to remove signature".to_string())?;
+        .context(error::RemoveSignatureSnafu)?;
 
     image
         .derive_stub_by_truncating_trailing_sections(TRAILING_SECTIONS_TO_REMOVE)
-        .with_whatever_context(|_| "Failed to derive stub".to_string())?;
+        .context(error::DeriveStubSnafu)?;
 
     image
         .write_to(stub_path)
-        .with_whatever_context(|_| format!("Failed to write stub '{}'", stub_path.display()))?;
+        .context(error::StubWriteSnafu { path: stub_path })?;
 
     eprintln!(
         "ukisys: stripped signature and trailing sections {:?} from '{}', wrote {} bytes to '{}'",
