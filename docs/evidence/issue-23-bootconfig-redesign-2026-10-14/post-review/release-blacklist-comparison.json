@@ -1,0 +1,236 @@
+{
+  "passed": true,
+  "old_source": "09380d356886842b8987b602ed2ef7daaefec4f3",
+  "final_source": "830ee97501b05adbf6dc76d13383643e440a6002",
+  "main_cases_source": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/verify-blacklist-fix.py",
+  "main_cases_source_sha256": "ae422842d41fe1727f53bc9d143a683ce585e1bcc684c32f443fd5e501678470",
+  "main_local_results_sha256": "85cbe23a00c2167825734d24c4dcb1ef8e8aed8b42428ab9173a79c3725d121f",
+  "tools": {
+    "old": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+      "sha256": "acbfe00be449421f7857bfce3852aeecc76445fbcae90f6d8a60d10b04bd2444"
+    },
+    "final": {
+      "path": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+      "sha256": "47435217778d99096c7a73d91de13fba69063586f6679921ba92b3c95bba9587"
+    }
+  },
+  "cases": {
+    "mixed-block": {
+      "old": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/mixed-block/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/mixed-block/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "d6acd40baeafea482407a287073c2a8b4c541c6ff1f69151a13796976da10d9f",
+        "output_sha256": "c22483d4f7112a0b3a0eed31d5be113d79c469cdb5daae1894005b3826f2c4d1",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = \"i8042\"\n"
+      },
+      "final": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/mixed-block/final/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/mixed-block/final/bootconfig.in"
+        ],
+        "exit_code": 1,
+        "input_preserved": true,
+        "input_sha256": "d6acd40baeafea482407a287073c2a8b4c541c6ff1f69151a13796976da10d9f",
+        "output_sha256": "d6acd40baeafea482407a287073c2a8b4c541c6ff1f69151a13796976da10d9f",
+        "stdout": "",
+        "stderr": "Error: Failed to merge bootconfig module blacklists *\n\nCaused by this error:\n  1: Module blacklist must be a single-line assignment\n\nNOTE: Some redundant information has been removed from the lines marked with *. Set SNAFU_RAW_ERROR_MESSAGES=1 to disable this behavior.\n\n",
+        "output": "kernel { module_blacklist = binfmt_misc }\nkernel.module_blacklist = i8042\n"
+      }
+    },
+    "canonical": {
+      "old": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/canonical/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/canonical/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "83426d7a80cd4ae2cb6327b1375d12996b4b94dfc7e44819a3666654e1692e87",
+        "output_sha256": "5f96475f5769d3c32adfc3277a7e73e7c49db8f92125cc3b5395e1dd795a0c9a",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      },
+      "final": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/canonical/final/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/canonical/final/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "83426d7a80cd4ae2cb6327b1375d12996b4b94dfc7e44819a3666654e1692e87",
+        "output_sha256": "5f96475f5769d3c32adfc3277a7e73e7c49db8f92125cc3b5395e1dd795a0c9a",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.systemd.mask = proc-sys-fs-binfmt_misc.mount\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      }
+    },
+    "aliases": {
+      "old": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/aliases/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/aliases/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "a23c4252d2efd0b69dc80ee7f62dc98f86d0d49c162e2ef852315faa41f6471c",
+        "output_sha256": "16c13728730e79f74f125d8539de52ebcb23dec615a39b17fe16f2d19a21c594",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      },
+      "final": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/aliases/final/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/aliases/final/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "a23c4252d2efd0b69dc80ee7f62dc98f86d0d49c162e2ef852315faa41f6471c",
+        "output_sha256": "16c13728730e79f74f125d8539de52ebcb23dec615a39b17fe16f2d19a21c594",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      }
+    },
+    "arrays": {
+      "old": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/arrays/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/arrays/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "da7364adbccbaa2a57ee03af4b0c91eac704047ed24f06969ad9010d60acf038",
+        "output_sha256": "92cfb2d70e8a5bdf0a4ab75f305fa6ad3969c403dcba96b79c852c9c37b0139b",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      },
+      "final": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/arrays/final/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/arrays/final/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "da7364adbccbaa2a57ee03af4b0c91eac704047ed24f06969ad9010d60acf038",
+        "output_sha256": "92cfb2d70e8a5bdf0a4ab75f305fa6ad3969c403dcba96b79c852c9c37b0139b",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      }
+    },
+    "plain": {
+      "old": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/plain/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/plain/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": true,
+        "input_sha256": "aa98a1eea843e00b90a4baecf06ded0a184cb40b8c4164d2808607287051c091",
+        "output_sha256": "aa98a1eea843e00b90a4baecf06ded0a184cb40b8c4164d2808607287051c091",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.quiet\n"
+      },
+      "final": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/plain/final/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/plain/final/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": true,
+        "input_sha256": "aa98a1eea843e00b90a4baecf06ded0a184cb40b8c4164d2808607287051c091",
+        "output_sha256": "aa98a1eea843e00b90a4baecf06ded0a184cb40b8c4164d2808607287051c091",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.console = tty0, ttyS0\nkernel.quiet\n"
+      }
+    },
+    "fips": {
+      "old": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/fips/old/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/fips/old/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "bcae6bd0284ee4cd0ee7001ee6461c03b5cf7689f131ddbfd710ee5ccc854f6d",
+        "output_sha256": "a323ab6b020df3ebb2661957197b5fff1d24d94ea70b820bae3f53a31cf0ac6e",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.fips = 1\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      },
+      "final": {
+        "argv": [
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/tools/ukisys",
+          "merge-bootconfig",
+          "--input",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/fips/final/bootconfig.in",
+          "--output",
+          "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/release-blacklist/fips/final/bootconfig.in"
+        ],
+        "exit_code": 0,
+        "input_preserved": false,
+        "input_sha256": "bcae6bd0284ee4cd0ee7001ee6461c03b5cf7689f131ddbfd710ee5ccc854f6d",
+        "output_sha256": "a323ab6b020df3ebb2661957197b5fff1d24d94ea70b820bae3f53a31cf0ac6e",
+        "stdout": "",
+        "stderr": "",
+        "output": "kernel.fips = 1\nkernel.module_blacklist = \"binfmt_misc,i8042\"\n"
+      }
+    }
+  }
+}

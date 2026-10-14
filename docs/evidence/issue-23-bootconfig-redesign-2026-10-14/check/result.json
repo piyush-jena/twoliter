@@ -1,0 +1,22 @@
+{
+  "request_id": "83c159d7-2deb-486b-b484-82510c7ede0a",
+  "request": {
+    "target": "twoliter",
+    "arch": "x86_64",
+    "reason": "Recheck after correcting the CLI fixture to expect the merged blacklist last; production code unchanged.",
+    "testing": "Standalone PR5 formatting, workspace unit tests and all-target Clippy, including typed GRUB PCR9 caller.",
+    "last_change": "33dbf4b updates tools/ukisys/tests/cmdline.rs expectation: systemd.mask before module_blacklist.",
+    "operation": "check",
+    "twoliter_revision": "33dbf4bab8ea5810803f05cb7c5d184041be6cf0"
+  },
+  "status": "succeeded",
+  "exit_code": 0,
+  "log": "/home/fedora/Repositories/symphony/.symphony/builds/83c159d7-2deb-486b-b484-82510c7ede0a/build.log",
+  "wall_clock_s": 708.1687769889832,
+  "artifacts": [
+    "/home/fedora/Repositories/symphony/.symphony/builds/83c159d7-2deb-486b-b484-82510c7ede0a/artifacts/check-result.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/83c159d7-2deb-486b-b484-82510c7ede0a/artifacts/source-provenance.json"
+  ],
+  "cache": "unknown",
+  "executor": "cloud"
+}

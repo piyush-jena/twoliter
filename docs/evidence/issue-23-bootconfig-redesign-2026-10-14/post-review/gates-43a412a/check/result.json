@@ -1,0 +1,22 @@
+{
+  "request_id": "b9eea637-6454-4103-be28-f3082de9aa08",
+  "request": {
+    "target": "twoliter",
+    "arch": "x86_64",
+    "reason": "Post-review revalidation after accepted F1 fix: reject retained block-form blacklists before canonical append.",
+    "testing": "PR5 formatting, release workspace tests and strict all-target Clippy, including the mixed blacklist regression.",
+    "last_change": "43a412a moves the retained-form check before canonical append and adds one mixed block/assignment fixture.",
+    "operation": "check",
+    "twoliter_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7"
+  },
+  "status": "succeeded",
+  "exit_code": 0,
+  "log": "/home/fedora/Repositories/symphony/.symphony/builds/b9eea637-6454-4103-be28-f3082de9aa08/build.log",
+  "wall_clock_s": 717.6406588554382,
+  "artifacts": [
+    "/home/fedora/Repositories/symphony/.symphony/builds/b9eea637-6454-4103-be28-f3082de9aa08/artifacts/check-result.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/b9eea637-6454-4103-be28-f3082de9aa08/artifacts/source-provenance.json"
+  ],
+  "cache": "unknown",
+  "executor": "cloud"
+}

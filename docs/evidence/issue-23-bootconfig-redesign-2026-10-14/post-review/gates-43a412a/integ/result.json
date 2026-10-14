@@ -1,0 +1,23 @@
+{
+  "request_id": "e23181d7-cedb-4607-9107-94923b6c7c33",
+  "request": {
+    "target": "twoliter",
+    "arch": "x86_64",
+    "reason": "Post-review revalidation after accepted F1 fix: reject retained block-form blacklists before canonical append.",
+    "testing": "Full Twoliter make integ at the reviewed PR5 F1-fix revision.",
+    "last_change": "43a412a moves the retained-form check before canonical append and adds one mixed block/assignment fixture.",
+    "operation": "integ",
+    "twoliter_revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7"
+  },
+  "status": "succeeded",
+  "exit_code": 0,
+  "log": "/home/fedora/Repositories/symphony/.symphony/builds/e23181d7-cedb-4607-9107-94923b6c7c33/build.log",
+  "wall_clock_s": 717.787957906723,
+  "artifacts": [
+    "/home/fedora/Repositories/symphony/.symphony/builds/e23181d7-cedb-4607-9107-94923b6c7c33/artifacts/rust-toolchain-provenance.txt",
+    "/home/fedora/Repositories/symphony/.symphony/builds/e23181d7-cedb-4607-9107-94923b6c7c33/artifacts/source-provenance.json",
+    "/home/fedora/Repositories/symphony/.symphony/builds/e23181d7-cedb-4607-9107-94923b6c7c33/artifacts/twoliter-provenance.txt"
+  ],
+  "cache": "unknown",
+  "executor": "cloud"
+}

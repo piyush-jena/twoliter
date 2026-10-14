@@ -1,0 +1,25 @@
+{
+  "completed_at": "2026-10-14T04:57:55.041990+00:00",
+  "revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+  "status": "succeeded",
+  "source_head": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+  "tracked_changes": false,
+  "helper_exit_code": 0,
+  "conductor_publications": [
+    {
+      "comment_id": 4338,
+      "request_id": "b9eea637-6454-4103-be28-f3082de9aa08",
+      "status": "succeeded"
+    },
+    {
+      "comment_id": 4349,
+      "request_id": "e23181d7-cedb-4607-9107-94923b6c7c33",
+      "status": "succeeded"
+    }
+  ],
+  "verification": "verified.json",
+  "source_edits": false,
+  "heads_published": false,
+  "new_critic_round": false,
+  "remaining_work_in_delegation": null
+}

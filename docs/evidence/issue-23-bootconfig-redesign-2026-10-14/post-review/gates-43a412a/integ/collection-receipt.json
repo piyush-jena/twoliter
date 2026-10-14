@@ -1,0 +1,34 @@
+{
+  "input_sha256": "aac9546cb3bbf745b06085be6f6f14224b95d07160776d2f396a884eb8ebd12f",
+  "remote_result": {
+    "request_id": "e23181d7-cedb-4607-9107-94923b6c7c33",
+    "input_sha256": "aac9546cb3bbf745b06085be6f6f14224b95d07160776d2f396a884eb8ebd12f",
+    "exit_code": 0,
+    "error": null,
+    "wall_clock_s": 717.787957906723,
+    "files": [
+      {
+        "path": "rust-toolchain-provenance.txt",
+        "size": 357,
+        "sha256": "7532a5ac0d2f7530b4daee6deb5a0ad6e4dca61656df7e2f1fd7b05f2dea086f",
+        "mode": 420
+      },
+      {
+        "path": "source-provenance.json",
+        "size": 414,
+        "sha256": "ec245a9d2d165ab9fd6a761836b6dd9c6e744544a80655e0ca55a3f12c0b6782",
+        "mode": 384
+      },
+      {
+        "path": "twoliter-provenance.txt",
+        "size": 66,
+        "sha256": "928daaafd75c665a0e46eeac6834c1374576209395634fcc6d56305de150890b",
+        "mode": 420
+      }
+    ],
+    "log_sha256": "17d1ec8d23a7f3c05ab9d3219d5cd04e21492009d1154e1f17a784d4def7c0e3"
+  },
+  "verified_at": 1791953738.0513976,
+  "bucket": "symphony-build-533267423195-us-east-2",
+  "prefix": "outputs/e23181d7-cedb-4607-9107-94923b6c7c33"
+}

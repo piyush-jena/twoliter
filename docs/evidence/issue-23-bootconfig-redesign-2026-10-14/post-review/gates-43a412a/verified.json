@@ -1,0 +1,33 @@
+{
+  "verified_at": "2026-10-14T04:57:36.272694+00:00",
+  "revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+  "checks": [
+    {
+      "operation": "check",
+      "request_id": "b9eea637-6454-4103-be28-f3082de9aa08",
+      "revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+      "status": "succeeded",
+      "passed": true,
+      "input_sha256": "ccd7302f6899fd7041bafd71bee6abf9c0c0a126932d8d8c0053da9002dfc229",
+      "log_sha256": "cf6262c12022913a382eea31504c78f678f326a16d0d5290b639d85582b2b691",
+      "tests_passed": 572,
+      "tests_ignored": 47,
+      "pcrsys_tests_passed": 127,
+      "evidence": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/pr5-checks/check"
+    },
+    {
+      "operation": "integ",
+      "request_id": "e23181d7-cedb-4607-9107-94923b6c7c33",
+      "revision": "43a412a349a5dff0283058d2c2aa50afe4519cd7",
+      "status": "succeeded",
+      "passed": true,
+      "input_sha256": "aac9546cb3bbf745b06085be6f6f14224b95d07160776d2f396a884eb8ebd12f",
+      "log_sha256": "17d1ec8d23a7f3c05ab9d3219d5cd04e21492009d1154e1f17a784d4def7c0e3",
+      "tests_passed": 19,
+      "tests_ignored": 0,
+      "pcrsys_tests_passed": null,
+      "evidence": "/home/fedora/Repositories/symphony/stages/24-uki-pcr-predictions/.symphony/issue24-bootconfig-redesign-2026-10-14/post-review-validation/pr5-checks/integ"
+    }
+  ],
+  "passed": true
+}
