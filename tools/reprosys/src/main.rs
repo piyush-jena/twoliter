@@ -6,8 +6,10 @@ mod disk;
 mod download;
 mod erofs;
 mod error;
+mod ext4;
 mod fsfiles;
 mod kmod;
+mod pe;
 mod verity;
 
 use crate::error::Result;
