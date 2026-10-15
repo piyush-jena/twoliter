@@ -3936,6 +3936,7 @@ dependencies = [
  "flate2",
  "gptman",
  "hex",
+ "libc",
  "lzma-rs",
  "pcrsys",
  "regex",
