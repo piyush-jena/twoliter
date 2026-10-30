@@ -34,7 +34,7 @@ deny:
 
 .PHONY: clippy
 clippy:
-	cargo clippy --locked -- -D warnings --no-deps
+	cargo clippy --locked --all-targets -- -D warnings --no-deps
 
 .PHONY: fmt
 fmt:

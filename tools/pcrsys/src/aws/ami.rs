@@ -1,14 +1,14 @@
 //! AMI-based PCR prediction support.
 
 use super::parse_aws_uefi_data;
-use crate::efi::EfiVars;
+use crate::efi::SecureBootVars;
 use crate::error::Result;
 use aws_sdk_ec2::types::ImageAttributeName;
 use aws_sdk_ec2::Client;
 use snafu::{OptionExt, ResultExt};
 
 /// Retrieve UEFI data from an AMI using DescribeImageAttribute.
-pub async fn get_uefi_data(ec2_client: &Client, ami_id: &str) -> Result<EfiVars> {
+pub async fn get_uefi_data(ec2_client: &Client, ami_id: &str) -> Result<SecureBootVars> {
     let response = ec2_client
         .describe_image_attribute()
         .image_id(ami_id)

@@ -6,6 +6,8 @@ be compiled for `cfg(test)`, which is accomplished at its declaration in `main.r
 !*/
 
 #![allow(unused)]
+// Test paths are canonical, as a process's current directory is, so that tests can compare them.
+#![allow(clippy::disallowed_methods)]
 
 #[cfg(feature = "integ-tests")]
 mod cargo_make;

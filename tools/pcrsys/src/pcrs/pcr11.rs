@@ -1,7 +1,11 @@
 //! PCR 11: Boot Phases (sysinit, preconfigured, configured, ready, shutdown, final)
 
+use crate::boot::BootChain;
 use crate::error::Result;
-use crate::predict::{extend_pcr_string, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL};
+use crate::pe::MEASURED_UKI_SECTIONS;
+use crate::predict::{
+    extend_pcr_data, extend_pcr_string, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL,
+};
 
 /// Systemd boot phase strings extended into PCR 11.
 const PHASES: &[&str] = &[
@@ -14,9 +18,24 @@ const PHASES: &[&str] = &[
 ];
 
 /// Predict PCR 11 values for all boot phases.
-pub fn predict(_ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
-    let mut digests = Vec::with_capacity(PHASES.len() + 1);
+pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
     let mut pcr = PCR_INIT_VAL;
+
+    if let BootChain::Uki(uki) = ctx.chain {
+        for name in MEASURED_UKI_SECTIONS {
+            let data = uki.section(name);
+            if data.is_empty() {
+                continue;
+            }
+
+            let mut terminated = name.as_bytes().to_vec();
+            terminated.push(0);
+            pcr = extend_pcr_data(&pcr, &terminated);
+            pcr = extend_pcr_data(&pcr, data);
+        }
+    }
+
+    let mut digests = Vec::with_capacity(PHASES.len() + 1);
     digests.push(pcr);
     for phase in PHASES {
         pcr = extend_pcr_string(&pcr, phase);
@@ -53,5 +72,27 @@ mod tests {
         let ctx = m.build(Platform::Aws);
         let result = predict(&ctx).unwrap().unwrap();
         assert_eq!(result.1.sha256[index], expected);
+    }
+
+    #[test]
+    fn records_are_pinned() {
+        use crate::predict::test_support::assert_pins;
+
+        let grub = MockCtx::new();
+        let grub_record = predict(&grub.build(Platform::Aws)).unwrap().unwrap().1;
+        let uki = MockCtx::uki();
+        let uki_record = predict(&uki.build(Platform::Aws)).unwrap().unwrap().1;
+        assert_pins(&[
+            (
+                "grub",
+                &grub_record,
+                "a7d59408b74a95d98aaf715e998931957f793e6e67b5cf032236e35aa2a1fe4a",
+            ),
+            (
+                "uki",
+                &uki_record,
+                "a90f937d69afb1a3eb4c2a79954ec55323a47ca59d05a9a69ecd33eb4c09da86",
+            ),
+        ]);
     }
 }

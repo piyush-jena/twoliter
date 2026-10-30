@@ -1,13 +1,12 @@
 //! Parser for AWS UEFI variable store format.
 
 use super::zlib_dict::AWS_ZLIB_DICT;
-use crate::efi::{EfiVar, EfiVars};
+use crate::efi::SecureBootVars;
 use crate::error::Result;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use flate2::{Decompress, FlushDecompress, Status};
 use snafu::{ensure_whatever, ResultExt};
 use std::io::{Cursor, Read};
-use uuid::Uuid;
 
 /// Size of the AWS UEFI data header: magic (8) + padding (4) + version (4).
 const UEFI_HEADER_SIZE: usize = 16;
@@ -17,7 +16,7 @@ const UEFI_HEADER_SIZE: usize = 16;
 /// Decodes the base64 data, verifies the "AMZNUEFI" magic header,
 /// decompresses using zlib with the AWS preset dictionary, and
 /// extracts the PK, KEK, db, and dbx variables.
-pub fn parse_aws_uefi_data(b64_data: &str) -> Result<EfiVars> {
+pub fn parse_aws_uefi_data(b64_data: &str) -> Result<SecureBootVars> {
     let binary = STANDARD
         .decode(b64_data.trim())
         .whatever_context("failed to decode base64")?;
@@ -48,6 +47,7 @@ fn decompress_with_dict(compressed: &[u8]) -> Result<Vec<u8>> {
         // Grow buffer to make room for more output
         let out_pos = output.len();
         output.resize(out_pos + 32 * 1024, 0);
+        let progress = (decomp.total_in(), decomp.total_out());
 
         let result = decomp.decompress(
             &compressed[in_pos..],
@@ -61,6 +61,11 @@ fn decompress_with_dict(compressed: &[u8]) -> Result<Vec<u8>> {
         match result {
             Ok(Status::StreamEnd) => return Ok(output),
             Ok(Status::Ok | Status::BufError) => {
+                // With room for output, no progress means the input ended before the stream.
+                ensure_whatever!(
+                    (decomp.total_in(), decomp.total_out()) != progress,
+                    "truncated compressed UEFI data"
+                );
                 in_pos =
                     usize::try_from(decomp.total_in()).whatever_context("total_in overflow")?;
                 // Continue loop to grow buffer
@@ -80,12 +85,12 @@ fn decompress_with_dict(compressed: &[u8]) -> Result<Vec<u8>> {
 /// EFI variable attribute for time-based authenticated write access.
 const EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS: u32 = 0x20;
 
-/// Parse decompressed AWS UEFI variable data into EfiVars.
+/// Parse decompressed AWS UEFI variable data into the measured Secure Boot variables.
 ///
 /// The format is: variable count (u64), followed by each variable containing
 /// name, data, GUID, attributes, and optionally timestamp/digest for
 /// authenticated variables.
-fn parse_variables(data: &[u8]) -> Result<EfiVars> {
+fn parse_variables(data: &[u8]) -> Result<SecureBootVars> {
     let mut cursor = Cursor::new(data);
     let num_vars = read_u64(&mut cursor)?;
     let mut variables = Vec::new();
@@ -93,7 +98,8 @@ fn parse_variables(data: &[u8]) -> Result<EfiVars> {
     for _ in 0..num_vars {
         let name = read_string(&mut cursor)?;
         let var_data = read_data(&mut cursor)?;
-        let guid = read_guid(&mut cursor)?;
+        // PCR 7 measures each Secure Boot variable under its standard GUID.
+        let _guid = read_bytes(&mut cursor, 16)?;
         let attr = read_u32(&mut cursor)?;
 
         if attr & EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS != 0 {
@@ -102,11 +108,11 @@ fn parse_variables(data: &[u8]) -> Result<EfiVars> {
         }
 
         if matches!(name.as_str(), "PK" | "KEK" | "db" | "dbx") {
-            variables.push(EfiVar::new(name, guid, hex::encode(&var_data)));
+            variables.push((name, var_data));
         }
     }
 
-    Ok(EfiVars { variables })
+    SecureBootVars::from_store(variables)
 }
 
 /// Read a little-endian u64 from the cursor.
@@ -141,13 +147,6 @@ fn read_data(cursor: &mut Cursor<&[u8]>) -> Result<Vec<u8>> {
 fn read_string(cursor: &mut Cursor<&[u8]>) -> Result<String> {
     let data = read_data(cursor)?;
     String::from_utf8(data).whatever_context("invalid UTF-8")
-}
-
-/// Read a 16-byte GUID and return it as a lowercase hyphenated string.
-fn read_guid(cursor: &mut Cursor<&[u8]>) -> Result<String> {
-    let mut buf = [0u8; 16];
-    cursor.read_exact(&mut buf).whatever_context("read GUID")?;
-    Ok(Uuid::from_bytes_le(buf).to_string())
 }
 
 #[cfg(test)]
@@ -208,21 +207,23 @@ HM4Mz6wVsBV91Fzph80pt9gZGbF1NAAgo3UM";
     fn test_parse_aws_uefi_data() {
         let result = parse_aws_uefi_data(SAMPLE_AWS_UEFI_B64).unwrap();
 
-        // Should have PK, KEK, db, dbx with correct GUIDs
-        assert_eq!(result.variables.len(), 4);
+        // Should have PK, KEK, db and dbx
+        let names: Vec<_> = result.iter().map(|(name, _, _)| name).collect();
+        assert_eq!(names, ["PK", "KEK", "db", "dbx"]);
     }
 
     #[test]
     fn test_parse_aws_uefi_data_content() {
         let result = parse_aws_uefi_data(SAMPLE_AWS_UEFI_B64).unwrap();
 
+        let data = |wanted| {
+            let (_, _, data) = result.iter().find(|(name, _, _)| *name == wanted).unwrap();
+            hex::encode(data)
+        };
         // Verify PK data starts with expected signature list header
-        let pk = result.variables.iter().find(|v| v.name == "PK").unwrap();
-        assert!(pk.data.starts_with("a159c0a5e494a74a87b5ab155c2bf072"));
-
+        assert!(data("PK").starts_with("a159c0a5e494a74a87b5ab155c2bf072"));
         // Verify dbx has expected empty hash content (SHA-256 of empty)
-        let dbx = result.variables.iter().find(|v| v.name == "dbx").unwrap();
-        assert!(dbx.data.contains("e3b0c44298fc1c149afbf4c8996fb924"));
+        assert!(data("dbx").contains("e3b0c44298fc1c149afbf4c8996fb924"));
     }
 
     #[test]
@@ -275,6 +276,13 @@ HM4Mz6wVsBV91Fzph80pt9gZGbF1NAAgo3UM";
     #[test]
     fn test_decompress_malformed() {
         assert!(decompress_with_dict(b"not valid zlib").is_err());
+    }
+
+    #[test]
+    fn test_decompress_truncated() {
+        let compressed = zlib_compress(&[7; 65536]);
+        let err = decompress_with_dict(&compressed[..compressed.len() / 2]).unwrap_err();
+        assert!(err.to_string().contains("truncated"), "{err}");
     }
 
     #[test]

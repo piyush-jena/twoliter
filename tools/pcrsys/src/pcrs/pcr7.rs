@@ -1,17 +1,16 @@
 //! PCR 7: Secure Boot Policy
 
 use crate::efi::{
-    generate_efi_variable_data, EslHeader, EFI_GLOBAL_VARIABLE_GUID,
+    generate_efi_variable_data, EslHeader, SecureBootVars, EFI_GLOBAL_VARIABLE_GUID,
     EFI_IMAGE_SECURITY_DATABASE_GUID, SHIM_LOCK_GUID,
 };
 use crate::error::Result;
-use crate::pe::{extract_sbat_level, extract_vendor_cert};
+use crate::pe::Shim;
 use crate::platform::Platform;
 use crate::predict::{
-    extend_pcr, extend_pcr_separator, PcrContext, PcrIndex, PcrRecord, PCR_INIT_VAL,
+    extend_pcr_data, extend_pcr_separator, PcrContext, PcrDigests, PcrIndex, PcrRecord,
+    PCR_INIT_VAL,
 };
-use sha2::{Digest, Sha256};
-use snafu::{OptionExt, ResultExt};
 
 /// VMware SignatureOwner GUID used when enrolling Secure Boot keys via OVF.
 const VMWARE_SIGNATURE_OWNER_GUID: [u8; 16] = [
@@ -24,7 +23,10 @@ const VMWARE_SIGNATURE_OWNER_GUID: [u8; 16] = [
 /// 1. SecureBoot variable (0x01)
 /// 2. PK, KEK, db, dbx variables
 /// 3. Separator
-/// 4. db authority (certificate used to verify shim)
+/// 4. db authority (certificate used to verify the next image in the chain)
+///
+/// If a shim is present, it adds two further measurements:
+///
 /// 5. SbatLevel (from shim's .sbatlevel section)
 /// 6. MokListRT (vendor certificate from shim)
 ///
@@ -32,91 +34,33 @@ const VMWARE_SIGNATURE_OWNER_GUID: [u8; 16] = [
 /// - AWS/Metal: uses SignatureOwner GUID from efi-vars.json
 /// - VMware: uses VMware's SignatureOwner GUID for enrolled keys
 pub fn predict(ctx: &PcrContext) -> Result<Option<(PcrIndex, PcrRecord)>> {
-    let vendor_cert = extract_vendor_cert(ctx.shim)?;
-    let sbat_level = extract_sbat_level(ctx.shim)?;
-
-    // Get EFI variables
-    let pk = ctx
-        .efi_vars
-        .get("PK")
-        .whatever_context("PK variable not found")?;
-    let kek = ctx
-        .efi_vars
-        .get("KEK")
-        .whatever_context("KEK variable not found")?;
-    let db = ctx
-        .efi_vars
-        .get("db")
-        .whatever_context("db variable not found")?;
-    let dbx = ctx
-        .efi_vars
-        .get("dbx")
-        .whatever_context("dbx variable not found")?;
-
-    let pk_data = hex::decode(&pk.data).whatever_context("invalid PK hex")?;
-    let kek_data = hex::decode(&kek.data).whatever_context("invalid KEK hex")?;
-    let db_data = hex::decode(&db.data).whatever_context("invalid db hex")?;
-    let dbx_data = hex::decode(&dbx.data).whatever_context("invalid dbx hex")?;
-
-    let pcr = match ctx.platform {
-        Platform::Aws | Platform::Metal => predict_variant(
-            &pk_data,
-            &kek_data,
-            &db_data,
-            &dbx_data,
-            &vendor_cert,
-            &sbat_level,
-        )?,
-        Platform::Vmware => {
-            // Replace SignatureOwner GUIDs with VMware's GUID
-            let pk_data = replace_signature_owner_guid(&pk_data, &VMWARE_SIGNATURE_OWNER_GUID)?;
-            let kek_data = replace_signature_owner_guid(&kek_data, &VMWARE_SIGNATURE_OWNER_GUID)?;
-            let db_data = replace_signature_owner_guid(&db_data, &VMWARE_SIGNATURE_OWNER_GUID)?;
-            let dbx_data = replace_signature_owner_guid(&dbx_data, &VMWARE_SIGNATURE_OWNER_GUID)?;
-            predict_variant(
-                &pk_data,
-                &kek_data,
-                &db_data,
-                &dbx_data,
-                &vendor_cert,
-                &sbat_level,
-            )?
-        }
-    };
-
+    // A UKI is loaded by the firmware directly, so nothing extends PCR 7 past the
+    // db authority; a GRUB bank boots through shim, which measures its own policy.
+    let pcr = predict_sb_policy(ctx.efi_vars, ctx.platform, ctx.chain.shim())?;
     Ok(Some((PcrIndex::Pcr7, PcrRecord::new(pcr))))
 }
 
-/// Predict PCR 7 for a specific set of Secure Boot variables.
-fn predict_variant(
-    pk_data: &[u8],
-    kek_data: &[u8],
-    db_data: &[u8],
-    dbx_data: &[u8],
-    vendor_cert: &[u8],
-    sbat_level: &[u8],
-) -> Result<[u8; 32]> {
+/// Measure the Secure Boot policy into PCR 7.
+///
+/// `shim` is the shim in the boot chain, and is `None` when the firmware loads a UKI directly.
+fn predict_sb_policy(
+    efi_vars: &SecureBootVars,
+    platform: Platform,
+    shim: Option<&Shim>,
+) -> Result<PcrDigests> {
     // 1. SecureBoot = 0x01
     let secure_boot_data =
         generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "SecureBoot", &[0x01]);
-    let mut pcr = extend_pcr(&PCR_INIT_VAL, &Sha256::digest(&secure_boot_data).into());
+    let mut pcr = extend_pcr_data(&PCR_INIT_VAL, &secure_boot_data);
 
-    // 2. PK
-    let pk_var_data = generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "PK", pk_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&pk_var_data).into());
-
-    // 3. KEK
-    let kek_var_data = generate_efi_variable_data(&EFI_GLOBAL_VARIABLE_GUID, "KEK", kek_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&kek_var_data).into());
-
-    // 4. db
-    let db_var_data = generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "db", db_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&db_var_data).into());
-
-    // 5. dbx
-    let dbx_var_data =
-        generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "dbx", dbx_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&dbx_var_data).into());
+    // 2-5. PK, KEK, db, dbx, as the platform enrolled them
+    let variables = efi_vars
+        .iter()
+        .map(|(name, guid, data)| Ok((name, guid, enrolled(data, platform)?)))
+        .collect::<Result<Vec<_>>>()?;
+    for (name, guid, data) in &variables {
+        pcr = extend_pcr_data(&pcr, &generate_efi_variable_data(guid, name, data));
+    }
 
     // 6. Separator
     pcr = extend_pcr_separator(&pcr);
@@ -124,21 +68,37 @@ fn predict_variant(
     // 7. db authority - certificate used to verify shim
     // Assumes single cert in db per Bottlerocket sbkeys profile.
     // If multiple signature lists with different sizes exist, only the first is extracted.
-    let db_sig = extract_first_sig_from_esl(db_data)?;
+    let (_, _, db) = variables
+        .iter()
+        .find(|(name, _, _)| *name == "db")
+        .expect("db is a measured Secure Boot variable");
+    let db_sig = extract_first_sig_from_esl(db)?;
     let db_authority = generate_efi_variable_data(&EFI_IMAGE_SECURITY_DATABASE_GUID, "db", &db_sig);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&db_authority).into());
+    pcr = extend_pcr_data(&pcr, &db_authority);
+
+    let Some(shim) = shim else {
+        return Ok(pcr);
+    };
 
     // 8. SbatLevel
-    let sbat_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "SbatLevel", sbat_level);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&sbat_var_data).into());
+    let sbat_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "SbatLevel", shim.sbat_level());
+    pcr = extend_pcr_data(&pcr, &sbat_var_data);
 
     // 9. MokListRT - owner GUID + vendor certificate
     let mut mok_data = SHIM_LOCK_GUID.to_bytes_le().to_vec();
-    mok_data.extend_from_slice(vendor_cert);
+    mok_data.extend_from_slice(shim.vendor_cert());
     let mok_var_data = generate_efi_variable_data(&SHIM_LOCK_GUID, "MokListRT", &mok_data);
-    pcr = extend_pcr(&pcr, &Sha256::digest(&mok_var_data).into());
+    pcr = extend_pcr_data(&pcr, &mok_var_data);
 
     Ok(pcr)
+}
+
+/// A Secure Boot variable as the platform enrolls it, and so as the firmware measures it.
+fn enrolled(data: &[u8], platform: Platform) -> Result<Vec<u8>> {
+    match platform {
+        Platform::Aws | Platform::Metal => Ok(data.to_vec()),
+        Platform::Vmware => replace_signature_owner_guid(data, &VMWARE_SIGNATURE_OWNER_GUID),
+    }
 }
 
 /// Replace the SignatureOwner GUID in an EFI Signature List.
@@ -167,17 +127,15 @@ fn extract_first_sig_from_esl(esl: &[u8]) -> Result<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::efi::{EfiVar, EfiVars, EFI_CERT_X509_GUID};
-    use crate::predict::test_support::{build_test_shim, MockCtx};
+    use crate::predict::test_support::{assert_pins, MockCtx};
 
     #[test]
     fn test_extract_first_sig_from_esl() {
         // Build a minimal ESL with owner GUID + 4-byte certificate
-        let mut esl = vec![0u8; 28 + 16 + 4];
-        esl[0..16].copy_from_slice(&EFI_CERT_X509_GUID.to_bytes_le());
-        esl[24..28].copy_from_slice(&20u32.to_le_bytes());
+        let mut esl = build_x509_esl();
         esl[28..44].copy_from_slice(&[0x01; 16]);
         esl[44..48].copy_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF]);
         let sig = extract_first_sig_from_esl(&esl).unwrap();
@@ -187,7 +145,7 @@ mod tests {
         assert_eq!(&sig[16..20], &[0xDE, 0xAD, 0xBE, 0xEF]);
     }
 
-    fn build_x509_esl() -> Vec<u8> {
+    pub(crate) fn build_x509_esl() -> Vec<u8> {
         let mut esl = vec![0u8; 28 + 16 + 4];
         esl[0..16].copy_from_slice(&EFI_CERT_X509_GUID.to_bytes_le());
         esl[24..28].copy_from_slice(&20u32.to_le_bytes());
@@ -195,31 +153,32 @@ mod tests {
         esl
     }
 
-    fn build_efi_vars() -> EfiVars {
+    fn build_efi_vars() -> SecureBootVars {
         let global = "8be4df61-93ca-11d2-aa0d-00e098032b8c";
         let secdb = "d719b2cb-3d3a-4596-a3bc-dad00e67656f";
-        EfiVars {
+        SecureBootVars::from_json(&EfiVars {
             variables: vec![
                 EfiVar::new("PK", global, hex::encode(build_x509_esl())),
                 EfiVar::new("KEK", global, hex::encode(build_x509_esl())),
                 EfiVar::new("db", secdb, hex::encode(build_x509_esl())),
                 EfiVar::new("dbx", secdb, hex::encode(build_x509_esl())),
             ],
+        })
+        .unwrap()
+    }
+
+    /// `m`, with the test Secure Boot variables.
+    fn with_efi_vars(m: MockCtx) -> MockCtx {
+        MockCtx {
+            efi_vars: build_efi_vars(),
+            ..m
         }
     }
 
     #[test]
     fn test_predict_aws() {
-        let shim = build_test_shim();
-        let efi_vars = build_efi_vars();
-        let m = MockCtx::new();
-        let ctx = PcrContext::builder()
-            .platform(Platform::Aws)
-            .efi_vars(&efi_vars)
-            .partitions(&m.layout)
-            .shim(&shim)
-            .build();
-        let result = predict(&ctx).unwrap().unwrap();
+        let m = with_efi_vars(MockCtx::new());
+        let result = predict(&m.build(Platform::Aws)).unwrap().unwrap();
         assert_eq!(result.0, PcrIndex::Pcr7);
         assert_eq!(
             result.1.sha256[0],
@@ -229,16 +188,8 @@ mod tests {
 
     #[test]
     fn test_predict_vmware() {
-        let shim = build_test_shim();
-        let efi_vars = build_efi_vars();
-        let m = MockCtx::new();
-        let ctx = PcrContext::builder()
-            .platform(Platform::Vmware)
-            .efi_vars(&efi_vars)
-            .partitions(&m.layout)
-            .shim(&shim)
-            .build();
-        let result = predict(&ctx).unwrap().unwrap();
+        let m = with_efi_vars(MockCtx::new());
+        let result = predict(&m.build(Platform::Vmware)).unwrap().unwrap();
         assert_eq!(result.0, PcrIndex::Pcr7);
         assert_eq!(
             result.1.sha256[0],
@@ -247,40 +198,32 @@ mod tests {
     }
 
     #[test]
-    fn test_predict_missing_pk() {
-        let shim = build_test_shim();
-        let m = MockCtx::new();
-        let ctx = PcrContext::builder()
-            .platform(Platform::Aws)
-            .efi_vars(&m.efi_vars)
-            .partitions(&m.layout)
-            .shim(&shim)
-            .build();
-        let err = predict(&ctx).unwrap_err();
-        assert!(err.to_string().contains("PK"));
-    }
-
-    #[test]
-    fn test_predict_invalid_hex() {
-        let shim = build_test_shim();
-        let global = "8be4df61-93ca-11d2-aa0d-00e098032b8c";
-        let secdb = "d719b2cb-3d3a-4596-a3bc-dad00e67656f";
-        let efi_vars = EfiVars {
-            variables: vec![
-                EfiVar::new("PK", global, "ZZZZ"),
-                EfiVar::new("KEK", global, "01"),
-                EfiVar::new("db", secdb, hex::encode(build_x509_esl())),
-                EfiVar::new("dbx", secdb, "04"),
-            ],
-        };
-        let m = MockCtx::new();
-        let ctx = PcrContext::builder()
-            .platform(Platform::Aws)
-            .efi_vars(&efi_vars)
-            .partitions(&m.layout)
-            .shim(&shim)
-            .build();
-        let err = predict(&ctx).unwrap_err();
-        assert!(err.to_string().contains("invalid") || err.to_string().contains("hex"));
+    fn records_are_pinned() {
+        let grub = with_efi_vars(MockCtx::new());
+        let grub = |platform| predict(&grub.build(platform)).unwrap().unwrap().1;
+        let uki = with_efi_vars(MockCtx::uki());
+        let uki_record = predict(&uki.build(Platform::Aws)).unwrap().unwrap().1;
+        assert_pins(&[
+            (
+                "grub aws",
+                &grub(Platform::Aws),
+                "d03f9cc266a0691a8b583eeaaadb9a2da91488c455be1fb96b2493e2c86a427a",
+            ),
+            (
+                "grub vmware",
+                &grub(Platform::Vmware),
+                "06840d34b09011efb3693c92eadc61413fe0c9d6c21f4a7a424e657fef290e51",
+            ),
+            (
+                "grub metal",
+                &grub(Platform::Metal),
+                "d03f9cc266a0691a8b583eeaaadb9a2da91488c455be1fb96b2493e2c86a427a",
+            ),
+            (
+                "uki aws",
+                &uki_record,
+                "a29e9ee63fbfc4e47d418d33f74821b0c6b0c621291edb1c2574e8a1c338415c",
+            ),
+        ]);
     }
 }

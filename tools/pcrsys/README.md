@@ -4,7 +4,9 @@ A TPM Platform Configuration Register (PCR) prediction tool for Bottlerocket.
 
 ## Overview
 
-`pcrsys` predicts TPM PCR values (SHA-256) for Bottlerocket images without requiring a running system. It analyzes disk images and EFI variables to compute what the PCR values would be after boot, enabling pre-registration of expected measurements for attestation policies.
+`pcrsys` predicts TPM PCR values (SHA-256 and SHA-384) for Bottlerocket images without requiring a running
+system. It analyzes disk images and EFI variables to compute what the PCR values would be after boot,
+enabling pre-registration of expected measurements for attestation policies.
 
 ## Usage
 
@@ -29,26 +31,28 @@ JSON output with predicted PCR values, keyed by PCR index:
 ```json
 {
   "pcrs": {
-    "0": { "sha256": ["<hex digest>"] },
-    "4": { "sha256": ["<hex digest>"] },
-    "7": { "sha256": ["<hex digest>"] }
+    "0": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] },
+    "4": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] },
+    "7": { "sha256": ["<64 hex characters>"], "sha384": ["<96 hex characters>"] }
   }
 }
 ```
 
 ## Supported PCRs
 
+The table below describes GRUB images. Direct UKI boot is described below.
+
 | PCR | Description |
 |-----|-------------|
 | 0 | Platform firmware (static per platform) |
-| 1 | Platform configuration (static per platform) |
+| 1 | Platform configuration (VMware only) |
 | 2 | Option ROM code (separator only) |
 | 3 | Option ROM configuration (separator only) |
 | 4 | Boot manager code (shim, grub, vmlinuz authenticode hashes) |
 | 5 | GPT partition table |
 | 6 | Resume events (separator only) |
 | 7 | Secure Boot policy (PK, KEK, db, dbx, SbatLevel, MokListRT) |
-| 9 | Kernel command line (grub.cfg + bootconfig) |
+| 9 | Kernel command line (grub.cfg + bootconfig); on aarch64, first the LoadOptions GRUB passes, which the kernel's EFI stub measures |
 | 10 | Zero (unused) |
 | 11 | Boot phases (systemd) |
 | 12 | Zero (unused) |
@@ -57,6 +61,9 @@ JSON output with predicted PCR values, keyed by PCR index:
 | 15 | Zero (unused) |
 
 PCRs 4 and 9 are skipped for images with A/B boot partitions since the active kernel and root hash can change.
+
+On AWS, PCRs 1 and 8 are omitted for both boot paths because they depend on
+instance-specific firmware configuration and runtime OS settings.
 
 ## Supported Platforms
 
@@ -85,6 +92,12 @@ JSON file containing Secure Boot variables:
 
 ### Disk image
 
-GPT-partitioned disk image containing:
+For GRUB, a GPT-partitioned disk image containing:
+
 - EFI System Partition (FAT) with `/EFI/BOOT/boot{aa64,x64}.efi` (shim) and `grub{aa64,x64}.efi`
-- Boot partition (ext4) with `/vmlinuz`, `/grub.cfg`, and `/bootconfig.data`
+- Boot partition (ext4) with `/vmlinuz` and `/grub/grub.cfg`
+- PRIVATE partition (ext4) with `/bootconfig.data`
+
+### Direct UKI boot
+
+Both subcommands also support Bottlerocket Unified Kernel Images (UKIs) on AWS, for x86_64 and aarch64.

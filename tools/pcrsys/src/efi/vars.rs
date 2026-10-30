@@ -1,8 +1,18 @@
 //! EFI variable types and parsing.
 
 use super::esl::{EFI_GLOBAL_VARIABLE_GUID, EFI_IMAGE_SECURITY_DATABASE_GUID};
+use crate::error::Result;
 use serde::Deserialize;
-use snafu::{ensure_whatever, OptionExt, Whatever};
+use snafu::{ensure_whatever, OptionExt, ResultExt, Whatever};
+use uuid::Uuid;
+
+/// The Secure Boot variables firmware measures into PCR 7, in that order, with their GUIDs.
+pub const SECURE_BOOT_VARIABLES: [(&str, Uuid); 4] = [
+    ("PK", EFI_GLOBAL_VARIABLE_GUID),
+    ("KEK", EFI_GLOBAL_VARIABLE_GUID),
+    ("db", EFI_IMAGE_SECURITY_DATABASE_GUID),
+    ("dbx", EFI_IMAGE_SECURITY_DATABASE_GUID),
+];
 
 /// Raw EFI variables before validation.
 #[derive(Debug, Deserialize)]
@@ -28,22 +38,15 @@ impl TryFrom<RawEfiVars> for EfiVars {
     type Error = Whatever;
 
     fn try_from(raw: RawEfiVars) -> std::result::Result<Self, Self::Error> {
-        let global = EFI_GLOBAL_VARIABLE_GUID.to_string();
-        let secdb = EFI_IMAGE_SECURITY_DATABASE_GUID.to_string();
-        let required: &[(&str, &str)] = &[
-            ("PK", &global),
-            ("KEK", &global),
-            ("db", &secdb),
-            ("dbx", &secdb),
-        ];
-        for (name, guid) in required {
+        for (name, guid) in SECURE_BOOT_VARIABLES {
             let var = raw
                 .variables
                 .iter()
-                .find(|v| v.name == *name)
+                .find(|v| v.name == name)
                 .whatever_context(format!("missing required variable: {name}"))?;
+            let guid = guid.to_string();
             ensure_whatever!(
-                var.guid == *guid,
+                var.guid == guid,
                 "{} has GUID {} but expected {}",
                 name,
                 var.guid,
@@ -76,6 +79,7 @@ pub struct EfiVar {
     time: Option<String>,
 }
 
+#[cfg(test)]
 impl EfiVar {
     /// Create a new EFI variable with the given name, GUID, and hex-encoded data.
     pub fn new(name: impl Into<String>, guid: impl Into<String>, data: impl Into<String>) -> Self {
@@ -93,6 +97,47 @@ impl EfiVars {
     /// Find a variable by name.
     pub fn get(&self, name: &str) -> Option<&EfiVar> {
         self.variables.iter().find(|v| v.name == name)
+    }
+}
+
+/// The measured Secure Boot variables' data, decoded once, in `SECURE_BOOT_VARIABLES` order.
+#[derive(Debug, Default)]
+pub struct SecureBootVars([Vec<u8>; 4]);
+
+impl SecureBootVars {
+    /// Decode the measured variables from efi-vars.json.
+    pub fn from_json(vars: &EfiVars) -> Result<Self> {
+        Self::collect(|name| {
+            let var = vars
+                .get(name)
+                .whatever_context(format!("{name} variable not found"))?;
+            hex::decode(&var.data).whatever_context(format!("invalid {name} hex"))
+        })
+    }
+
+    /// Take the measured variables from a variable store's `(name, data)` pairs.
+    /// The first variable of a name wins.
+    pub fn from_store(mut variables: Vec<(String, Vec<u8>)>) -> Result<Self> {
+        Self::collect(|name| {
+            let index = variables
+                .iter()
+                .position(|(variable, _)| variable == name)
+                .whatever_context(format!("{name} variable not found"))?;
+            Ok(variables.remove(index).1)
+        })
+    }
+
+    /// Each measured variable's name, GUID, and data, in measurement order.
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, Uuid, &[u8])> {
+        SECURE_BOOT_VARIABLES
+            .iter()
+            .zip(&self.0)
+            .map(|(&(name, guid), data)| (name, guid, data.as_slice()))
+    }
+
+    fn collect(mut data: impl FnMut(&str) -> Result<Vec<u8>>) -> Result<Self> {
+        let [pk, kek, db, dbx] = SECURE_BOOT_VARIABLES.map(|(name, _)| name);
+        Ok(Self([data(pk)?, data(kek)?, data(db)?, data(dbx)?]))
     }
 }
 
@@ -182,5 +227,46 @@ mod tests {
         let raw = vars_missing(name);
         let err = EfiVars::try_from(raw).unwrap_err().to_string();
         assert!(err.contains("missing") && err.contains(name));
+    }
+
+    #[test]
+    fn secure_boot_vars_decode_each_measured_variable_once() {
+        let global = EFI_GLOBAL_VARIABLE_GUID.to_string();
+        let secdb = EFI_IMAGE_SECURITY_DATABASE_GUID.to_string();
+        let vars = EfiVars {
+            variables: vec![
+                EfiVar::new("dbx", &secdb, "03"),
+                EfiVar::new("PK", &global, "00"),
+                EfiVar::new("Other", &global, "zz"),
+                EfiVar::new("KEK", &global, "01"),
+                EfiVar::new("db", &secdb, "02"),
+            ],
+        };
+        let vars = SecureBootVars::from_json(&vars).unwrap();
+        let measured: Vec<_> = vars
+            .iter()
+            .map(|(name, _, data)| (name, data.to_vec()))
+            .collect();
+        assert_eq!(
+            measured,
+            [
+                ("PK", vec![0]),
+                ("KEK", vec![1]),
+                ("db", vec![2]),
+                ("dbx", vec![3])
+            ]
+        );
+    }
+
+    #[test]
+    fn secure_boot_vars_reject_missing_and_invalid_variables() {
+        let global = EFI_GLOBAL_VARIABLE_GUID.to_string();
+        let vars = EfiVars {
+            variables: vec![EfiVar::new("PK", &global, "ZZZZ")],
+        };
+        let err = SecureBootVars::from_json(&vars).unwrap_err();
+        assert!(err.to_string().contains("invalid PK hex"), "{err}");
+        let err = SecureBootVars::from_store(vec![("PK".to_string(), vec![0])]).unwrap_err();
+        assert!(err.to_string().contains("KEK variable not found"), "{err}");
     }
 }
