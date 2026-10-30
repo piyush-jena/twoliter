@@ -3,16 +3,22 @@
 //! This matches the behavior of `pesign --hash`.
 
 use crate::error::Result;
+use crate::predict::PcrDigests;
 use authenticode::authenticode_digest;
 use object::read::pe::PeFile;
 use object::{pe, Object, ObjectSection};
-use sha2::{Digest, Sha256};
-use snafu::{ensure_whatever, whatever, OptionExt};
+use sha2::{Digest, Sha256, Sha384};
+use snafu::{ensure_whatever, whatever, OptionExt, ResultExt};
 use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::ops::Deref;
 
-/// Calculate Authenticode SHA256 hash of a PE32+ file.
+/// Sections that mark a UKI. `.sbat` is deliberately not one, since shim also has it.
+const UKI_MARKERS: [&str; 3] = [".linux", ".osrel", ".cmdline"];
+
+/// Calculate Authenticode SHA-256 and SHA-384 hashes of a PE32+ file.
 /// Pads to 8-byte boundary to match pesign behavior.
-pub fn get_authenticode_hash(pe_data: &[u8]) -> Result<[u8; 32]> {
+fn authenticode_hash(pe_data: &[u8]) -> Result<PcrDigests> {
     let padding = (8 - (pe_data.len() % 8)) % 8;
     let data: Cow<[u8]> = if padding > 0 {
         let mut padded = pe_data.to_vec();
@@ -31,7 +37,112 @@ pub fn get_authenticode_hash(pe_data: &[u8]) -> Result<[u8; 32]> {
         authenticode_digest(&pe, &mut hasher).is_ok(),
         "authenticode digest failed"
     );
-    Ok(hasher.finalize().into())
+    let sha256 = hasher.finalize().into();
+    let mut hasher = Sha384::new();
+    ensure_whatever!(
+        authenticode_digest(&pe, &mut hasher).is_ok(),
+        "authenticode SHA-384 digest failed"
+    );
+    let sha384 = hasher.finalize().into();
+    Ok(PcrDigests { sha256, sha384 })
+}
+
+/// A validated PE32+ image, reduced to what measurements need.
+#[derive(Debug, Clone)]
+pub struct PeImage {
+    arch: Arch,
+    authenticode: PcrDigests,
+    sections: BTreeMap<String, Vec<u8>>,
+}
+
+impl PeImage {
+    pub fn parse(data: &[u8]) -> Result<Self> {
+        let pe = PeFile::<pe::ImageNtHeaders64>::parse(data)
+            .ok()
+            .whatever_context("failed to parse PE32+ file")?;
+        let arch = match pe.architecture() {
+            object::Architecture::X86_64 => Arch::X86_64,
+            object::Architecture::Aarch64 => Arch::Aarch64,
+            other => {
+                whatever!("unsupported architecture {other:?}");
+            }
+        };
+        let mut sections = BTreeMap::new();
+        for section in pe.sections() {
+            let name = section
+                .name()
+                .whatever_context("failed to read PE section name")?;
+            let data = section
+                .data()
+                .with_whatever_context(|_| format!("failed to read section '{name}'"))?;
+            // The first section of a name wins, as with `section_by_name`.
+            sections
+                .entry(name.to_string())
+                .or_insert_with(|| data.to_vec());
+        }
+        Ok(Self {
+            arch,
+            authenticode: authenticode_hash(data)?,
+            sections,
+        })
+    }
+
+    pub fn arch(&self) -> Arch {
+        self.arch
+    }
+
+    pub fn authenticode(&self) -> &PcrDigests {
+        &self.authenticode
+    }
+
+    /// Initialized bytes of the named section.
+    pub fn section(&self, name: &str) -> Option<&[u8]> {
+        self.sections.get(name).map(Vec::as_slice)
+    }
+
+    fn required_section(&self, name: &str) -> Result<&[u8]> {
+        self.section(name)
+            .with_whatever_context(|| format!("section '{name}' not found"))
+    }
+}
+
+/// A UKI: a PE image carrying the kernel, os-release, and command line.
+#[derive(Debug, Clone)]
+pub struct Uki(PeImage);
+
+impl Uki {
+    /// Classify a firmware fallback executable, handing it back when it is not a UKI.
+    pub fn from_pe(pe: PeImage) -> std::result::Result<Self, PeImage> {
+        if UKI_MARKERS
+            .iter()
+            .any(|name| pe.section(name).is_some_and(|data| !data.is_empty()))
+        {
+            Ok(Self(pe))
+        } else {
+            Err(pe)
+        }
+    }
+
+    /// The kernel command line the UKI was built with, as systemd-stub measures it.
+    pub fn cmdline(&self) -> Result<&str> {
+        bootconfig::decode_uki_cmdline(self.section(".cmdline").unwrap_or_default())
+            .whatever_context("failed to parse UKI command line")
+    }
+}
+
+impl Deref for Uki {
+    type Target = PeImage;
+
+    fn deref(&self) -> &PeImage {
+        &self.0
+    }
+}
+
+/// The CPU architectures Bottlerocket boots on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Arch {
+    X86_64,
+    Aarch64,
 }
 
 /// Extract vendor certificate from shim's `.vendor_cert` section.
@@ -44,8 +155,8 @@ pub fn get_authenticode_hash(pe_data: &[u8]) -> Result<[u8; 32]> {
 /// - bytes 8-11: vendor_authorized_offset (u32 LE)
 /// - bytes 12-15: vendor_deauthorized_offset (u32 LE)
 /// - followed by certificate data
-pub fn extract_vendor_cert(pe_data: &[u8]) -> Result<Vec<u8>> {
-    let section_data = get_section_data(pe_data, ".vendor_cert")?;
+pub fn extract_vendor_cert(shim: &PeImage) -> Result<&[u8]> {
+    let section_data = shim.required_section(".vendor_cert")?;
     ensure_whatever!(
         section_data.len() >= 16,
         ".vendor_cert section too small for header"
@@ -62,7 +173,7 @@ pub fn extract_vendor_cert(pe_data: &[u8]) -> Result<Vec<u8>> {
         "vendor certificate extends beyond section"
     );
 
-    Ok(section_data[authorized_offset..authorized_offset + authorized_size].to_vec())
+    Ok(&section_data[authorized_offset..authorized_offset + authorized_size])
 }
 
 /// Extract SBAT level from shim's `.sbatlevel` section.
@@ -74,10 +185,10 @@ pub fn extract_vendor_cert(pe_data: &[u8]) -> Result<Vec<u8>> {
 /// - bytes 4-7: offset to first string (u32 LE)
 /// - bytes 8-11: unused (u32 LE)
 /// - bytes 12+: null-terminated SBAT strings
-pub fn extract_sbat_level(pe_data: &[u8]) -> Result<Vec<u8>> {
+pub fn extract_sbat_level(shim: &PeImage) -> Result<&[u8]> {
     const HEADER_SIZE: usize = 12;
 
-    let section_data = get_section_data(pe_data, ".sbatlevel")?;
+    let section_data = shim.required_section(".sbatlevel")?;
     ensure_whatever!(
         section_data.len() > HEADER_SIZE,
         ".sbatlevel section too small for header"
@@ -92,26 +203,7 @@ pub fn extract_sbat_level(pe_data: &[u8]) -> Result<Vec<u8>> {
     let end = end.whatever_context("SBAT level string not null-terminated")?;
     ensure_whatever!(end > HEADER_SIZE, "empty SBAT level string");
 
-    Ok(section_data[HEADER_SIZE..end].to_vec())
-}
-
-/// Get raw data from a named PE section.
-fn get_section_data<'a>(pe_data: &'a [u8], name: &str) -> Result<&'a [u8]> {
-    let pe = PeFile::<pe::ImageNtHeaders64>::parse(pe_data)
-        .ok()
-        .whatever_context("failed to parse PE32+ file")?;
-
-    for section in pe.sections() {
-        if section.name() == Ok(name) {
-            let data = section
-                .data()
-                .ok()
-                .whatever_context("failed to read section data")?;
-            return Ok(data);
-        }
-    }
-
-    whatever!("section '{name}' not found");
+    Ok(&section_data[HEADER_SIZE..end])
 }
 
 #[cfg(test)]
@@ -208,19 +300,100 @@ pub(crate) mod tests {
         pe
     }
 
+    /// Minimal PE32+ image with the given sections.
+    pub(crate) fn build_test_pe(machine: u16, sections: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut image = vec![0u8; 1024];
+        image[..2].copy_from_slice(b"MZ");
+        image[0x40..0x44].copy_from_slice(b"PE\0\0");
+        for (offset, value) in [
+            (0x44, machine),
+            (0x46, sections.len() as u16),
+            (0x54, 0xf0),
+            (0x56, 0x22),
+            (0x58, 0x20b),
+            (0x9c, 10),
+        ] {
+            image[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        image[0x70..0x78].copy_from_slice(&0x400000u64.to_le_bytes());
+        for (offset, value) in [
+            (0x3c, 0x40u32),
+            (0x78, 4096),
+            (0x7c, 512),
+            (0x90, (sections.len() as u32 + 1) * 4096),
+            (0x94, 1024),
+            (0xc4, 16),
+        ] {
+            image[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        for (index, (name, data)) in sections.iter().enumerate() {
+            let header = 0x148 + 40 * index;
+            let offset = image.len();
+            let raw_size = data.len().next_multiple_of(512);
+            image[header..header + name.len()].copy_from_slice(name.as_bytes());
+            for (field, value) in [
+                (8, data.len() as u32),
+                (12, (index as u32 + 1) * 4096),
+                (16, raw_size as u32),
+                (20, offset as u32),
+                (36, 0x40000040),
+            ] {
+                image[header + field..header + field + 4].copy_from_slice(&value.to_le_bytes());
+            }
+            image.extend_from_slice(data);
+            image.resize(offset + raw_size, 0);
+        }
+        image
+    }
+
+    pub(crate) fn build_test_uki(machine: u16) -> Vec<u8> {
+        let kernel = build_test_pe(machine, &[(".text", b"fixture kernel")]);
+        build_test_pe(
+            machine,
+            &[
+                (".cmdline", b"quiet\0"),
+                (".uname", b"6.18.48\0"),
+                (".osrel", b"ID=bottlerocket\n"),
+                (".linux", &kernel),
+                (".sbat", b"sbat,1\n"),
+            ],
+        )
+    }
+
+    #[test]
+    fn the_architecture_comes_from_the_machine_type() {
+        let pe = |machine| build_test_pe(machine, &[(".text", b"kernel")]);
+        let arch = |machine| PeImage::parse(&pe(machine)).map(|pe| pe.arch());
+        assert_eq!(arch(0x8664).unwrap(), Arch::X86_64);
+        assert_eq!(arch(0xaa64).unwrap(), Arch::Aarch64);
+        let err = arch(0x5064).unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported architecture"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn only_images_with_uki_sections_are_ukis() {
+        let uki = PeImage::parse(&build_test_uki(0x8664)).unwrap();
+        assert!(Uki::from_pe(uki).is_ok());
+        let shim = PeImage::parse(&build_test_shim()).unwrap();
+        assert!(Uki::from_pe(shim).is_err());
+    }
+
     #[test]
     fn test_authenticode_hash() {
         let pe = build_test_shim();
-        let hash = get_authenticode_hash(&pe).unwrap();
+        let hash = PeImage::parse(&pe).unwrap().authenticode;
         assert_eq!(
-            hex::encode(hash),
+            hex::encode(hash.sha256),
             "31afa5f057f8d697e026c2c21930bc01eec2e4b9ccf66d0006c9539d247aaa92"
         );
     }
 
     #[test]
     fn test_extract_vendor_cert() {
-        let shim = build_test_shim();
+        let shim = PeImage::parse(&build_test_shim()).unwrap();
         let cert = extract_vendor_cert(&shim).unwrap();
         assert_eq!(&cert[0..2], &[0x30, 0x82]); // ASN.1 SEQUENCE
         assert_eq!(cert.len(), 7);
@@ -228,9 +401,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_extract_sbat_level() {
-        let shim = build_test_shim();
+        let shim = PeImage::parse(&build_test_shim()).unwrap();
         let sbat = extract_sbat_level(&shim).unwrap();
-        let sbat_str = String::from_utf8_lossy(&sbat);
+        let sbat_str = String::from_utf8_lossy(sbat);
         assert!(sbat_str.starts_with("sbat,1,"));
         assert!(sbat_str.contains("shim,"));
     }
@@ -245,7 +418,7 @@ pub(crate) mod tests {
         shim[0x404..0x408].copy_from_slice(&12u32.to_le_bytes());
         shim[0x408..0x40c].copy_from_slice(&0u32.to_le_bytes());
 
-        let err = extract_sbat_level(&shim).unwrap_err();
+        let err = extract_sbat_level(&PeImage::parse(&shim).unwrap()).unwrap_err();
         assert!(err.to_string().contains("not null-terminated"));
     }
 
@@ -254,7 +427,7 @@ pub(crate) mod tests {
         let mut shim = build_test_shim();
         shim[0x180..0x184].copy_from_slice(&10u32.to_le_bytes()); // SizeOfRawData = 10
 
-        let err = extract_sbat_level(&shim).unwrap_err();
+        let err = extract_sbat_level(&PeImage::parse(&shim).unwrap()).unwrap_err();
         assert!(err.to_string().contains("too small"));
     }
 
@@ -263,7 +436,7 @@ pub(crate) mod tests {
         let mut shim = build_test_shim();
         shim[0x600..0x604].copy_from_slice(&0u32.to_le_bytes());
 
-        let err = extract_vendor_cert(&shim).unwrap_err();
+        let err = extract_vendor_cert(&PeImage::parse(&shim).unwrap()).unwrap_err();
         assert!(err.to_string().contains("no vendor certificate"));
     }
 
@@ -272,14 +445,17 @@ pub(crate) mod tests {
         let mut shim = build_test_shim();
         shim[0x600..0x604].copy_from_slice(&0xFFFFu32.to_le_bytes());
 
-        let err = extract_vendor_cert(&shim).unwrap_err();
+        let err = extract_vendor_cert(&PeImage::parse(&shim).unwrap()).unwrap_err();
         assert!(err.to_string().contains("extends beyond"));
     }
 
     #[test]
     fn test_section_not_found() {
         let shim = build_test_shim();
-        let err = get_section_data(&shim, ".nonexistent").unwrap_err();
+        let err = PeImage::parse(&shim)
+            .unwrap()
+            .required_section(".nonexistent")
+            .unwrap_err();
         assert!(err.to_string().contains("not found"));
     }
 }
