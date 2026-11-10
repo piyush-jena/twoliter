@@ -23,7 +23,7 @@ pub enum Policy {
     MustMatch,
     /// Bytes must be identical and all zero in the published image.
     MustBeZero,
-    /// Files must match, except for the TUF root role and the SBOMs.
+    /// Files must match, except for the SBOMs.
     FilesMustMatch,
     /// Depends on the random verity salt; not compared with the rebuilt image, but
     /// checked against the published data device and verity table.

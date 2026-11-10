@@ -39,9 +39,6 @@ pub fn is_uki_path(path: &[u8]) -> bool {
         .any(|u| path.eq_ignore_ascii_case(u.as_bytes()))
 }
 
-/// The TUF root role, which rebuilds cannot reproduce without the release keys.
-const TUF_ROOT_ROLE: &[u8] = b"/usr/share/updog/root.json";
-
 /// The SBOMs in ROOT-A, which sbomtool cannot reproduce yet.
 const SBOMS: &[&[u8]] = &[
     b"/usr/share/bottlerocket/spdx-sbom.json",
@@ -351,7 +348,7 @@ fn is_pe(data: &[u8]) -> bool {
 }
 
 /// Compare a PE binary. Only signatures, key sections and, if `cmdline_checked`,
-/// the verity digests and data size in `.cmdline` may differ.
+/// the verity root hash and salt in `.cmdline` may differ.
 fn compare_pe(expected: &[u8], actual: &[u8], cmdline_checked: bool) -> (Status, String) {
     let (Ok(rebuilt), Ok(published)) = (PeImage::parse(expected), PeImage::parse(actual)) else {
         return (
@@ -527,13 +524,10 @@ fn normalize_pe(data: &[u8], pe: &PeImage, allowed: &BTreeSet<(String, usize)>) 
 
 /// Why a ROOT-A file whose contents differ is expected to differ, if it is.
 fn expected_root_difference(path: &[u8]) -> Option<&'static str> {
-    if path.ends_with(TUF_ROOT_ROLE) {
-        Some("TUF root role; skipped, rebuilds generate their own without the release keys")
-    } else if SBOMS.iter().any(|s| path.ends_with(s)) {
-        Some("SBOM; skipped, sbomtool output is not reproducible")
-    } else {
-        None
-    }
+    SBOMS
+        .iter()
+        .any(|s| path.ends_with(s))
+        .then_some("SBOM; skipped, sbomtool output is not reproducible")
 }
 
 fn report(path: &[u8], status: Status, detail: impl Into<String>) -> FileReport {
@@ -1471,7 +1465,7 @@ pub(crate) mod tests {
             ("/etc/ca.crt", b"ca2", 3),
             // Kernel modules must match like any other file.
             ("/m/xfs.ko", b"module~key2", 11),
-            // The root role is skipped, whatever it holds.
+            // The root role must match like any other file: the rebuild embeds the public one.
             (role, b"not json", 8),
             (SBOM, a, a.len() as u64),
         ]);
@@ -1485,7 +1479,7 @@ pub(crate) mod tests {
                 ("/big", Status::Mismatch),
                 ("/etc/ca.crt", Status::Mismatch),
                 ("/m/xfs.ko", Status::Mismatch),
-                (role, Status::ExpectedDifference),
+                (role, Status::Mismatch),
                 (SBOM, Status::ExpectedDifference),
             ],
         );

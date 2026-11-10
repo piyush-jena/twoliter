@@ -463,18 +463,8 @@ fn compare_root(images: &Images, p: &Partition, r: &mut RegionReport) -> Result<
             files,
             "contents differ, but all entries are identical; the difference is in what is not \
              compared (timestamps or filesystem layout)",
-            |n| {
-                format!(
-                    "files differ only in the TUF root role and the SBOMs; {n} differing files \
-                     listed"
-                )
-            },
-            |mismatches, n| {
-                format!(
-                    "{mismatches} of {n} differing files differ beyond the TUF root role and \
-                     the SBOMs"
-                )
-            },
+            |n| format!("files differ only in the SBOMs; {n} differing files listed"),
+            |mismatches, n| format!("{mismatches} of {n} differing files differ beyond the SBOMs"),
         ),
         Err(e) => r.unreadable(e),
     }

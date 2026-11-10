@@ -200,7 +200,7 @@ mod tests {
 
     fn report() -> Report {
         use Status::{ExpectedDifference as Expected, Match, Mismatch};
-        let root_role = file("/usr/share/updog/root.json", Expected, "TUF root role");
+        let sbom = file("/usr/share/bottlerocket/spdx-sbom.json", Expected, "SBOM");
         let changed = file(
             "/usr/lib/libsettings.so",
             Mismatch,
@@ -212,7 +212,7 @@ mod tests {
             os: image(vec![
                 region("GPT", Match, "identical", vec![]),
                 region("EFI-A", Expected, "signing", vec![signing_artifact]),
-                region("ROOT-A", Mismatch, "differs", vec![root_role, changed]),
+                region("ROOT-A", Mismatch, "differs", vec![sbom, changed]),
             ]),
             data: None,
             notes: vec!["A note.".to_string()],
