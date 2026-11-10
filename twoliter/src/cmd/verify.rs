@@ -18,6 +18,14 @@ const DEFAULT_REPO: &str = "https://github.com/bottlerocket-os/bottlerocket.git"
 /// The first twoliter release whose builds are expected to be reproducible.
 const MIN_REPRODUCIBLE_TWOLITER: Version = Version::new(0, 26, 0);
 
+/// The first twoliter release whose ext4 partitions do not depend on the build host: the release
+/// carrying imghelper's `ext4_set_signed_dir_hash` and rpm2img's `no_copy_xattrs`. This assumes
+/// the next minor release carries that change.
+const HOST_INDEPENDENT_EXT4_TWOLITER: Version = Version::new(0, 28, 0);
+
+/// Where the kernel reports whether SELinux is enforcing.
+const SELINUX_ENFORCE: &str = "/sys/fs/selinux/enforce";
+
 /// erofs-utils commands reprosys uses to compare ROOT-A.
 const EROFS_TOOLS: &[&str] = &["fsck.erofs", "dump.erofs"];
 
@@ -182,7 +190,23 @@ impl VerifyAmi {
         if cloned {
             cleanup.push(source_dir.clone());
         }
-        check_twoliter_version(&source_dir).await?;
+        if let Some(pinned) = check_twoliter_version(&source_dir).await? {
+            let causes = private_host_differences(
+                &pinned,
+                selinux_enforcing().await,
+                std::env::consts::ARCH,
+            );
+            if !causes.is_empty() {
+                warn!(
+                    "\n\n!!! PRIVATE is expected to fail verification on this host. The source \
+                     pins twoliter {pinned}, and twoliter releases before \
+                     {HOST_INDEPENDENT_EXT4_TWOLITER} build ext4 partitions that depend on the \
+                     build host. Here, {}. Verify from an x86_64 host without SELinux enforcing. \
+                     !!!\n",
+                    causes.join(", and ")
+                );
+            }
+        }
         // Fail now rather than after the build if ROOT-A cannot be compared.
         ensure!(
             uses_erofs_root(&source_dir, &info.variant).await? != Some(false),
@@ -430,8 +454,9 @@ async fn read_release_version(dir: &Path) -> Result<String> {
         .with_context(|| format!("No release-version found in '{}'", path.display()))
 }
 
-/// Warn when the checkout pins a twoliter that predates reproducible builds.
-async fn check_twoliter_version(dir: &Path) -> Result<()> {
+/// Warn when the checkout pins a twoliter that predates reproducible builds, and return the pinned
+/// version if it parses.
+async fn check_twoliter_version(dir: &Path) -> Result<Option<Version>> {
     let path = dir.join("Makefile.toml");
     let makefile = read_toml(&path).await?;
     let pinned = makefile
@@ -439,8 +464,9 @@ async fn check_twoliter_version(dir: &Path) -> Result<()> {
         .and_then(|env| env.get("TWOLITER_VERSION"))
         .and_then(|v| v.as_str())
         .with_context(|| format!("No TWOLITER_VERSION found in '{}'", path.display()))?;
-    match Version::parse(pinned.trim_start_matches('v')) {
-        Ok(version) if version >= MIN_REPRODUCIBLE_TWOLITER => {
+    let version = Version::parse(pinned.trim_start_matches('v')).ok();
+    match &version {
+        Some(version) if *version >= MIN_REPRODUCIBLE_TWOLITER => {
             info!("Source pins twoliter {version}");
         }
         _ => warn!(
@@ -449,7 +475,40 @@ async fn check_twoliter_version(dir: &Path) -> Result<()> {
              from the AMI. !!!\n"
         ),
     }
-    Ok(())
+    Ok(version)
+}
+
+/// Whether this host enforces SELinux.
+async fn selinux_enforcing() -> bool {
+    fs::read_to_string(SELINUX_ENFORCE)
+        .await
+        .is_ok_and(|enforce| enforce.trim() == "1")
+}
+
+/// Why a rebuild on a host with `selinux_enforcing` and `arch` makes a PRIVATE that differs from
+/// one built on an x86_64 host without SELinux enforcing, when the source pins twoliter `pinned`.
+fn private_host_differences(
+    pinned: &Version,
+    selinux_enforcing: bool,
+    arch: &str,
+) -> Vec<&'static str> {
+    if *pinned >= HOST_INDEPENDENT_EXT4_TWOLITER {
+        return Vec::new();
+    }
+    let mut causes = Vec::new();
+    if selinux_enforcing {
+        causes.push(
+            "SELinux is enforcing, so mke2fs copies the SELinux labels of the rebuilt files into \
+             PRIVATE",
+        );
+    }
+    if arch == "aarch64" {
+        causes.push(
+            "the host is aarch64, whose char is unsigned, so mke2fs flags PRIVATE's directory \
+             hashes as unsigned",
+        );
+    }
+    causes
 }
 
 /// The highest-numbered TUF root role, `<N>.root.json`, at the top of the checkout `dir`.
@@ -640,6 +699,27 @@ async fn lz4_decompress(input: &Path, output: &Path) -> Result<()> {
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn warns_of_hosts_that_change_private() {
+        let old = Version::new(0, 27, 0);
+        let rc = Version::parse("0.28.0-rc.1").unwrap();
+        for (pinned, selinux_enforcing, arch, expected) in [
+            (&old, false, "x86_64", &[][..]),
+            (&old, true, "x86_64", &["SELinux"]),
+            (&old, false, "aarch64", &["aarch64"]),
+            (&rc, true, "aarch64", &["SELinux", "aarch64"]),
+            (&HOST_INDEPENDENT_EXT4_TWOLITER, true, "aarch64", &[]),
+            (&Version::new(0, 29, 1), true, "aarch64", &[]),
+        ] {
+            let causes = private_host_differences(pinned, selinux_enforcing, arch);
+            let case = format!("{pinned} {selinux_enforcing} {arch}: {causes:?}");
+            assert_eq!(causes.len(), expected.len(), "{case}");
+            for (cause, about) in causes.iter().zip(expected) {
+                assert!(cause.contains(about), "{case}");
+            }
+        }
+    }
 
     #[tokio::test]
     async fn detects_erofs_root() {
