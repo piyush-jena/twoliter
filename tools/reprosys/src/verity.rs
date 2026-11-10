@@ -1,5 +1,5 @@
-//! dm-verity table parsing, so tables can be compared beyond their root hash and
-//! salt, and hash tree verification.
+//! dm-verity table parsing, so tables can be compared beyond their root hash, salt
+//! and data size, and hash tree verification.
 
 use crate::error::Result;
 use crate::fsfiles::hex_bytes;
@@ -19,6 +19,9 @@ static TABLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     )
     .expect("valid regex")
 });
+
+/// The size of a device-mapper sector.
+pub const SECTOR_SIZE: u64 = 512;
 
 /// Parameters of a dm-verity device as given in its device-mapper table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -82,15 +85,27 @@ impl VerityTable {
             })
         })()
     }
+
+    /// The size of the data device the table covers, in bytes.
+    pub fn data_size(&self) -> Option<u64> {
+        self.data_blocks
+            .checked_mul(u64::from(self.data_block_size))
+    }
 }
 
-/// Replace the root hash and the salt of every dm-verity table in `text` with
-/// placeholders, as both depend on the random salt. Every other field is kept.
+/// Replace what depends on the contents of the data device in every dm-verity
+/// table in `text` with placeholders: the target length, the data block count,
+/// the root hash and the salt. Every other field is kept.
 pub fn normalize(text: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(text.len());
     let mut last = 0;
     for caps in TABLE_RE.captures_iter(text) {
-        for (name, placeholder) in [("root", &b"<root-hash>"[..]), ("salt", b"<salt>")] {
+        for (name, placeholder) in [
+            ("sectors", &b"<data-sectors>"[..]),
+            ("blocks", b"<data-blocks>"),
+            ("root", b"<root-hash>"),
+            ("salt", b"<salt>"),
+        ] {
             if let Some(m) = caps.name(name) {
                 out.extend_from_slice(&text[last..m.start()]);
                 out.extend_from_slice(placeholder);
@@ -319,7 +334,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn normalizes_digests_only() {
+    fn normalizes_data_size_and_digests_only() {
         let cmdline = |sectors: u64, blocks: u64, root: &str, salt: &str, rest: &str| {
             format!(
                 "ro dm-mod.create=\"root,,,ro,0 {sectors} verity 1 d h 4096 4096 {blocks} 1 \
@@ -330,25 +345,19 @@ pub(crate) mod tests {
         let rebuilt = cmdline(2400, 300, ROOT, "00", "");
         assert_eq!(
             String::from_utf8(normalize(&rebuilt)).unwrap(),
-            "ro dm-mod.create=\"root,,,ro,0 2400 verity 1 d h 4096 4096 300 1 \
+            "ro dm-mod.create=\"root,,,ro,0 <data-sectors> verity 1 d h 4096 4096 <data-blocks> 1 \
              sha256 <root-hash> <salt> 2 restart_on_corruption\" --"
         );
         let other_root = "b".repeat(64);
         assert_eq!(
             normalize(&rebuilt),
-            normalize(&cmdline(2400, 300, &other_root, "11", ""))
+            normalize(&cmdline(2408, 301, &other_root, "11", ""))
         );
         assert_ne!(
             normalize(&rebuilt),
             normalize(&cmdline(2400, 300, ROOT, "00", " ignore_zero_blocks"))
         );
-        // Every other field still counts, including the data size and the target start.
-        for (sectors, blocks) in [(2408, 301), (2408, 300), (2400, 301)] {
-            assert_ne!(
-                normalize(&rebuilt),
-                normalize(&cmdline(sectors, blocks, &other_root, "11", ""))
-            );
-        }
+        // Every other field still counts, including the target start.
         let moved = String::from_utf8(rebuilt.clone())
             .unwrap()
             .replace(",0 2400", ",8 2400");

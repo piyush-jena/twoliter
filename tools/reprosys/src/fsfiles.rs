@@ -284,7 +284,7 @@ impl SectionDifference {
                     && name == CMDLINE_SECTION
                     && verity::normalize(e) == verity::normalize(a) =>
             {
-                Some("the verity root hash and salt of the kernel command line")
+                Some("the verity root hash, salt and data size of the kernel command line")
             }
             _ => None,
         };
@@ -435,7 +435,7 @@ fn compare_file(
                 return report(
                     path,
                     Status::ExpectedDifference,
-                    "differs only in the verity root hash and salt",
+                    "differs only in the verity root hash, salt and data size",
                 );
             }
         }
