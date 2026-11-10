@@ -3934,7 +3934,6 @@ dependencies = [
  "bootconfig",
  "clap",
  "coldsnap",
- "crc",
  "ext4-view",
  "fatfs",
  "gptman",

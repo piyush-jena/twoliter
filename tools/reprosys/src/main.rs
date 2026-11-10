@@ -7,7 +7,6 @@ mod download;
 mod erofs;
 mod error;
 mod eventlog;
-mod ext4;
 mod fsfiles;
 mod pe;
 mod summary;

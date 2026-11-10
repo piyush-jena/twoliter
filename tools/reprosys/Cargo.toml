@@ -13,7 +13,6 @@ aws-sdk-sts.workspace = true
 bootconfig.workspace = true
 clap = { workspace = true, features = ["derive"] }
 coldsnap = { workspace = true, features = ["aws-sdk-rust-rustls"] }
-crc.workspace = true
 ext4-view.workspace = true
 fatfs.workspace = true
 gptman.workspace = true

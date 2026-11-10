@@ -89,9 +89,9 @@ pub fn summary(report: &Report, info: &AmiInfo, verbose: bool) -> String {
         }
     } else {
         out.push(wrap(
-            "FAIL fails verification. note marks differences that per-build signing keys, \
-             random salts or the build host's architecture explain; they do not fail \
-             verification. The report explains each check, and --verbose shows more detail.",
+            "FAIL fails verification. note marks differences that per-build signing keys or \
+             random salts explain; they do not fail verification. The report explains each \
+             check, and --verbose shows more detail.",
             0,
         ));
     }

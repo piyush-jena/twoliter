@@ -4,14 +4,13 @@ use crate::disk::{self, DiskLayout, Partition, Policy, RangeHash};
 use crate::erofs::{self, ErofsTree};
 use crate::error::Result;
 use crate::eventlog;
-use crate::ext4;
 use crate::fsfiles::{self, FileReport, Rules, Status};
 use crate::verity::{self, Device, VerityTable};
 use serde::Serialize;
 use serde_json::json;
 use sha2_0_11::{Digest, Sha256};
 use snafu::{ensure_whatever, ResultExt};
-use std::collections::{btree_map, BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -147,19 +146,13 @@ const NOTES: &[&str] = &[
      hash the image boots with, and HASH-A must hold every level of it where the table says. \
      The verity superblock in HASH-A, which the kernel does not read, is not compared. Only \
      format version 1 with sha256 is supported; anything else fails.",
-    "PRIVATE must match byte for byte, except for the directory hash flags in its superblocks: \
-     mke2fs records whether the build host's char is signed (x86_64) or unsigned (aarch64). When \
-     only those differ, the rebuilt PRIVATE is given the published flags and superblock \
-     checksums, and must then match byte for byte. When it differs otherwise, its entries, every \
-     directory including / and every other entry but lost+found, are compared one by one: type, \
-     permissions, ownership, symlink targets, device numbers, extended attributes and the \
-     contents of files. Their SELinux labels (security.selinux) may differ: older twoliter \
-     releases let mke2fs copy the labels that a build host with SELinux enabled puts on files, \
-     and extracting PRIVATE relabels them. A PRIVATE whose entries differ only in their labels, \
-     and maybe in its directory hash flags, is an expected difference; its inode timestamps and \
-     on-disk layout are then not compared either, but it must not have a journal to replay. \
-     Any other difference fails verification, including one only in timestamps or layout when \
-     no label differs.",
+    "PRIVATE must match byte for byte. When it differs, its files are compared to explain the \
+     difference, but it fails verification whatever they show. Images whose source pins a \
+     twoliter older than the first release whose ext4 partitions do not depend on the build \
+     host have two known causes of such a difference: a build host with SELinux enforcing, \
+     whose labels on the source files (security.selinux) mke2fs copies into PRIVATE, and an \
+     aarch64 build host, whose unsigned char mke2fs records in the directory hash flags of the \
+     superblocks. Verify such images from an x86_64 host without SELinux enforcing.",
 ];
 
 struct Images {
@@ -518,47 +511,12 @@ fn bootconfig_diff(expected: &[u8], actual: &[u8]) -> String {
     )
 }
 
-/// Merge the reports on PRIVATE's entries and on its files' contents, by path.
-fn merge_reports(entries: Vec<FileReport>, contents: Vec<FileReport>) -> Vec<FileReport> {
-    let mut merged: BTreeMap<String, FileReport> = BTreeMap::new();
-    for f in entries.into_iter().chain(contents) {
-        match merged.entry(f.path.clone()) {
-            btree_map::Entry::Vacant(v) => {
-                v.insert(f);
-            }
-            btree_map::Entry::Occupied(mut o) => {
-                let m = o.get_mut();
-                if m.detail != f.detail {
-                    m.detail = format!("{}; {}", m.detail, f.detail);
-                }
-                if f.status == Status::Mismatch {
-                    m.status = Status::Mismatch;
-                }
-            }
-        }
-    }
-    merged.into_values().collect()
-}
-
-/// Explain how PRIVATE differs from the rebuilt one. It fails unless it differs
-/// only in the directory hash flags, which mke2fs takes from the build host,
-/// or only in the SELinux labels of its entries and maybe those flags.
+/// Explain how PRIVATE differs from the rebuilt one by comparing their files.
+/// PRIVATE must match byte for byte, so it fails whatever they show.
 fn explain_private(images: &mut Images, p: &Partition, r: &mut RegionReport) {
     let _scope = eventlog::region(&p.name);
     let result = (|| -> Result<_> {
         let (e, a) = images.read(p)?;
-        let flags = (
-            fsfiles::ext4_dir_hash_flags(&e)?,
-            fsfiles::ext4_dir_hash_flags(&a)?,
-        );
-        // The rebuilt PRIVATE as a build host with the published one's `char` signedness writes it.
-        let same_beyond_flags = flags.0 != flags.1 && {
-            let mut e = e.clone();
-            fsfiles::ext4_copy_dir_hash_flags(&mut e, &a)?;
-            e == a
-        };
-        let entries = ext4::entries(&e).and_then(|entries| Ok((entries, ext4::entries(&a)?)));
-        let needs_recovery = ext4::needs_recovery(&a)?;
         let (e, a) = (fsfiles::ext4_files(e)?, fsfiles::ext4_files(a)?);
         let mut files = fsfiles::compare_files(&e, &a, Rules::Exact);
         let bootconfig = BOOTCONFIG.as_bytes();
@@ -569,97 +527,19 @@ fn explain_private(images: &mut Images, p: &Partition, r: &mut RegionReport) {
         ) {
             f.detail = format!("{}; {}", f.detail, bootconfig_diff(e, a));
         }
-        Ok((flags, same_beyond_flags, files, entries, needs_recovery))
+        Ok((files, fsfiles::union_keys(&e, &a).len()))
     })();
-    let ((expected, actual), same_beyond_flags, files, entries, needs_recovery) = match result {
+    let (files, total) = match result {
         Ok(result) => result,
         Err(e) => return r.unreadable(e),
     };
-    let (expected, actual) = (
-        fsfiles::dir_hash_signedness(expected),
-        fsfiles::dir_hash_signedness(actual),
-    );
-    let name = |s: Option<&'static str>| s.unwrap_or("not recorded");
-    let flags = (expected != actual).then(|| {
-        format!(
-            "directory hashes are {} in the rebuilt PRIVATE but {} in the published one, which \
-             mke2fs takes from the build host (signed on x86_64, unsigned on aarch64)",
-            name(expected),
-            name(actual)
-        )
-    });
-    if same_beyond_flags {
-        r.status = Status::ExpectedDifference;
-        r.detail = format!(
-            "differs only in its directory hash flags: {}; with the published flags, the rebuilt \
-             PRIVATE matches it byte for byte",
-            flags.unwrap_or_default()
-        );
-        r.files = files;
-        return;
-    }
-    let mut details: Vec<String> = flags.iter().cloned().collect();
-    let entries = match entries {
-        Ok((e, a)) => fsfiles::compare_entries(&e, &a, fsfiles::SELINUX_XATTR),
-        Err(e) => {
-            eventlog::error(&e);
-            details.push(format!(
-                "the metadata of its entries, such as their extended attributes, could not be \
-                 compared: {e}"
-            ));
-            r.detail = format!("contents differ: {}", details.join("; "));
-            r.files = files;
-            return;
-        }
+    r.detail = if files.is_empty() {
+        "contents differ, but its files are identical; the difference is in metadata (such as \
+         SELinux labels or directory hash flags) or layout, which must match too"
+            .to_string()
+    } else {
+        format!("contents differ: {} of {total} files differ", files.len())
     };
-    let files = merge_reports(entries, files);
-    let mismatches: Vec<&FileReport> = files
-        .iter()
-        .filter(|f| f.status == Status::Mismatch)
-        .collect();
-    let labels = files.len() - mismatches.len();
-    let not_compared =
-        "inode timestamps or the on-disk layout (allocation, inode numbers, journal)";
-    match mismatches.as_slice() {
-        [] if labels > 0 && needs_recovery => details.push(format!(
-            "its entries differ only in SELinux labels (security.selinux), on {labels} entries, \
-             but the published PRIVATE has a journal to replay when mounted, which is not compared"
-        )),
-        // Local builds on SELinux-enforcing hosts relabel PRIVATE; drop this arm once AMIs are
-        // built with no_xattr_copy.
-        [] if labels > 0 => {
-            let flags = flags
-                .map(|f| format!(", and in its directory hash flags: {f}"))
-                .unwrap_or_default();
-            r.status = Status::ExpectedDifference;
-            r.detail = format!(
-                "differs only in SELinux labels (security.selinux) on {labels} entries, which the \
-                 build and extraction process sets{flags}; labels are not compared, nor are \
-                 {not_compared}"
-            );
-            r.files = files;
-            return;
-        }
-        [] => {
-            let identical = format!(
-                "its entries and files are identical in type, permissions, ownership, symlink \
-                 targets, device numbers, extended attributes and contents, so it differs in \
-                 {not_compared}, which are not compared but are not expected to differ"
-            );
-            details.push(match flags {
-                Some(_) => format!(
-                    "with the published flags, the rebuilt PRIVATE still differs: {identical}"
-                ),
-                None => identical,
-            });
-        }
-        [f] => details.push(format!("{} differs", f.path)),
-        many => details.push(format!(
-            "{} entries differ beyond SELinux labels",
-            many.len()
-        )),
-    }
-    r.detail = format!("contents differ: {}", details.join("; "));
     r.files = files;
 }
 
@@ -1721,8 +1601,7 @@ mod rootfs_tests {
 
     /// A disk image whose PRIVATE holds `bootconfig`, with directory hashes
     /// flagged signed (`flags` 1) or unsigned (2), then changed by `debugfs`
-    /// commands. Its filesystem has two block groups, so it has a backup
-    /// superblock.
+    /// commands.
     fn private_image(
         dir: &Path,
         name: &str,
@@ -1752,10 +1631,18 @@ mod rootfs_tests {
         path
     }
 
-    fn private(rebuilt: &Path, published: &Path) -> (Verdict, Status) {
+    fn private(rebuilt: &Path, published: &Path) -> (Verdict, RegionReport) {
         let report = compare(rebuilt, published, None, None).unwrap();
-        let status = super::tests::region(&report.os, "PRIVATE").status;
-        (report.verdict, status)
+        let r = super::tests::region(&report.os, "PRIVATE").clone();
+        (report.verdict, r)
+    }
+
+    /// Assert that PRIVATE fails although its files are identical.
+    fn assert_fails_with_identical_files(rebuilt: &Path, published: &Path) {
+        let (verdict, r) = private(rebuilt, published);
+        assert_eq!((verdict, r.status), (Verdict::Failed, Status::Mismatch));
+        assert!(r.detail.contains("its files are identical"), "{r:#?}");
+        assert!(r.files.is_empty(), "{r:#?}");
     }
 
     #[test]
@@ -1765,73 +1652,42 @@ mod rootfs_tests {
         let d = dir.path();
         let noop = bootconfig("kernel {}\ninit {}\n");
         let published = private_image(d, "published", 1, &noop, &[]);
+        let (verdict, r) = private(&private_image(d, "same", 1, &noop, &[]), &published);
+        assert_eq!((verdict, r.status), (Verdict::Verified, Status::Match));
 
-        // Unsigned-char build host, e.g. aarch64.
-        let rebuilt = private_image(d, "rebuilt", 2, &noop, &[]);
-        assert_eq!(
-            private(&rebuilt, &published),
-            (Verdict::Verified, Status::ExpectedDifference)
-        );
-
-        // The flags do not excuse any other difference, even one that is not compared.
-        let mut slack = std::fs::read(&rebuilt).unwrap();
-        // A free block at the end of the filesystem.
-        slack[usize::try_from(11 * MIB).unwrap() - 100] = b'x';
-        let slack_path = d.join("slack.img");
-        std::fs::write(&slack_path, slack).unwrap();
-        assert_eq!(
-            private(&slack_path, &published),
-            (Verdict::Failed, Status::Mismatch)
-        );
+        // Rebuilt on an unsigned-char build host, e.g. aarch64.
+        let unsigned = private_image(d, "unsigned", 2, &noop, &[]);
+        assert_fails_with_identical_files(&unsigned, &published);
 
         // A published bootconfig with another kernel parameter.
         let tampered = bootconfig("kernel {}\ninit {}\nkernel.selinux = 0\n");
         let tampered = private_image(d, "tampered", 1, &tampered, &[]);
-        assert_eq!(
-            private(&published, &tampered),
-            (Verdict::Failed, Status::Mismatch)
+        let (verdict, r) = private(&published, &tampered);
+        assert_eq!((verdict, r.status), (Verdict::Failed, Status::Mismatch));
+        assert_eq!(r.detail, "contents differ: 1 of 1 files differ");
+        let [f] = r.files.as_slice() else {
+            panic!("{r:#?}");
+        };
+        assert_eq!((f.path.as_str(), f.status), (BOOTCONFIG, Status::Mismatch));
+        assert!(
+            f.detail.ends_with(
+                "lines only in the rebuilt bootconfig: none; only in the published one: \
+                 \"kernel.selinux = 0\""
+            ),
+            "{f:#?}"
         );
     }
 
     #[test]
     #[ignore = "needs mkfs.ext4"]
-    fn private_may_differ_only_in_selinux_labels() {
+    fn private_fails_on_selinux_labels() {
         let dir = tempfile::tempdir().unwrap();
         let d = dir.path();
         let noop = bootconfig("kernel {}\ninit {}\n");
-        let rebuilt = private_image(d, "rebuilt", 1, &noop, &[]);
+        let published = private_image(d, "published", 1, &noop, &[]);
+        // Rebuilt on a build host with SELinux enforcing, which labels the files.
         let label = "ea_set /bootconfig.data security.selinux system_u:object_r:local_t:s0";
-        for (name, flags, debugfs, expected) in [
-            // Labeled by a build host with SELinux enabled, or relabeled by extraction.
-            (
-                "labeled",
-                1,
-                &[label][..],
-                (Verdict::Verified, Status::ExpectedDifference),
-            ),
-            // Along with the directory hash flags.
-            (
-                "labeled-unsigned",
-                2,
-                &[label],
-                (Verdict::Verified, Status::ExpectedDifference),
-            ),
-            // Any other difference fails, even alongside a label.
-            (
-                "mode",
-                1,
-                &[label, "sif /bootconfig.data mode 0100600"],
-                (Verdict::Failed, Status::Mismatch),
-            ),
-            (
-                "extra",
-                1,
-                &["mkdir extra"],
-                (Verdict::Failed, Status::Mismatch),
-            ),
-        ] {
-            let published = private_image(d, name, flags, &noop, debugfs);
-            assert_eq!(private(&rebuilt, &published), expected, "{name}");
-        }
+        let labeled = private_image(d, "labeled", 1, &noop, &[label]);
+        assert_fails_with_identical_files(&labeled, &published);
     }
 }

@@ -4,7 +4,6 @@ use crate::error::Result;
 use crate::eventlog;
 use crate::pe;
 use crate::verity;
-use crc::{Algorithm, Crc};
 use ext4_view::Ext4;
 use fatfs::{FileSystem, FsOptions};
 use hmac::{Hmac, KeyInit, Mac};
@@ -12,7 +11,7 @@ use pcrsys::pe::PeImage;
 use serde::Serialize;
 use serde_json::json;
 use sha2_0_11::{Digest, Sha256, Sha512};
-use snafu::{ensure_whatever, OptionExt, ResultExt};
+use snafu::{ensure_whatever, ResultExt};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::io::{Cursor, Read};
@@ -154,141 +153,6 @@ pub fn fat_files(partition: Vec<u8>) -> Result<Files> {
         }
     }
     Ok(files)
-}
-
-/// Offset of the primary ext4 superblock, and the size of every copy.
-const EXT4_SUPERBLOCK: usize = 1024;
-
-/// `s_flags` bits recording the directory hash signedness: EXT2_FLAGS_SIGNED_HASH and
-/// EXT2_FLAGS_UNSIGNED_HASH.
-const EXT4_DIR_HASH_FLAGS: u32 = 0x3;
-
-/// Offset of `s_flags` in an ext4 superblock.
-const EXT4_S_FLAGS: usize = 0x160;
-
-/// Offset of `s_checksum` in an ext4 superblock, which covers the bytes before it.
-const EXT4_S_CHECKSUM: usize = 0x3fc;
-
-fn le_u32(data: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes(data[offset..offset + 4].try_into().expect("4 bytes"))
-}
-
-/// The ext4 superblock at `offset` in `partition`.
-fn ext4_superblock(partition: &[u8], offset: usize) -> Result<&[u8]> {
-    let sb = partition
-        .get(offset..offset + EXT4_SUPERBLOCK)
-        .whatever_context("ext4 filesystem is truncated")?;
-    ensure_whatever!(
-        sb[0x38..0x3a] == [0x53, 0xef],
-        "no ext4 superblock at offset {offset}"
-    );
-    Ok(sb)
-}
-
-/// The offsets of the primary superblock and of each backup.
-fn ext4_superblock_offsets(partition: &[u8]) -> Result<Vec<usize>> {
-    let sb = ext4_superblock(partition, EXT4_SUPERBLOCK)?;
-    let (compat, incompat, ro_compat) = (le_u32(sb, 0x5c), le_u32(sb, 0x60), le_u32(sb, 0x64));
-    let log_block_size = le_u32(sb, 0x18);
-    ensure_whatever!(log_block_size <= 6, "invalid ext4 block size");
-    let block_size = 1024u64 << log_block_size;
-    let mut blocks = u64::from(le_u32(sb, 0x4));
-    // INCOMPAT_64BIT
-    if incompat & 0x80 != 0 {
-        blocks |= u64::from(le_u32(sb, 0x150)) << 32;
-    }
-    let first_data_block = u64::from(le_u32(sb, 0x14));
-    let blocks_per_group = u64::from(le_u32(sb, 0x20));
-    ensure_whatever!(blocks_per_group > 0, "invalid ext4 blocks per group");
-    let groups = blocks
-        .saturating_sub(first_data_block)
-        .div_ceil(blocks_per_group);
-    let is_power = |mut g: u64, base: u64| {
-        while g.is_multiple_of(base) {
-            g /= base;
-        }
-        g == 1
-    };
-    let has_backup = |g: u64| {
-        // COMPAT_SPARSE_SUPER2 keeps at most two backups, at the groups it names.
-        if compat & 0x200 != 0 {
-            g == u64::from(le_u32(sb, 0x24c)) || g == u64::from(le_u32(sb, 0x250))
-        // RO_COMPAT_SPARSE_SUPER keeps them in group 1 and powers of 3, 5 and 7.
-        } else if ro_compat & 0x1 != 0 {
-            g == 1 || is_power(g, 3) || is_power(g, 5) || is_power(g, 7)
-        } else {
-            true
-        }
-    };
-    let mut offsets = vec![EXT4_SUPERBLOCK];
-    for g in (1..groups).filter(|g| has_backup(*g)) {
-        let offset = g
-            .checked_mul(blocks_per_group)
-            .and_then(|b| b.checked_add(first_data_block))
-            .and_then(|b| b.checked_mul(block_size))
-            .and_then(|o| usize::try_from(o).ok())
-            .whatever_context("invalid ext4 backup superblock offset")?;
-        ext4_superblock(partition, offset)?;
-        offsets.push(offset);
-    }
-    Ok(offsets)
-}
-
-/// CRC32C without the final inversion, as ext4 checksums use it.
-const EXT4_CRC32C: Crc<u32> = Crc::<u32>::new(&Algorithm {
-    width: 32,
-    poly: 0x1edc_6f41,
-    init: !0,
-    refin: true,
-    refout: true,
-    xorout: 0,
-    check: 0x1cf9_6d7c,
-    residue: 0,
-});
-
-fn ext4_superblock_checksum(sb: &[u8]) -> u32 {
-    EXT4_CRC32C.checksum(&sb[..EXT4_S_CHECKSUM])
-}
-
-/// The directory hash flags of the primary ext4 superblock.
-pub fn ext4_dir_hash_flags(partition: &[u8]) -> Result<u32> {
-    let sb = ext4_superblock(partition, EXT4_SUPERBLOCK)?;
-    Ok(le_u32(sb, EXT4_S_FLAGS) & EXT4_DIR_HASH_FLAGS)
-}
-
-/// How directory hash flags read in reports.
-pub fn dir_hash_signedness(flags: u32) -> Option<&'static str> {
-    match flags & EXT4_DIR_HASH_FLAGS {
-        0x1 => Some("signed"),
-        0x2 => Some("unsigned"),
-        0x3 => Some("flagged both signed and unsigned"),
-        _ => None,
-    }
-}
-
-/// Copy `like`'s directory-hash flags into every superblock of `partition` (fixing valid
-/// checksums), as a build host with `like`'s `char` signedness would write it.
-pub fn ext4_copy_dir_hash_flags(partition: &mut [u8], like: &[u8]) -> Result<()> {
-    let sb = ext4_superblock(partition, EXT4_SUPERBLOCK)?;
-    // RO_COMPAT_METADATA_CSUM
-    let checksummed = le_u32(sb, 0x64) & 0x400 != 0;
-    for offset in ext4_superblock_offsets(partition)? {
-        // Without a superblock there, `like` differs anyway.
-        let Ok(like_sb) = ext4_superblock(like, offset) else {
-            continue;
-        };
-        let flags = le_u32(like_sb, EXT4_S_FLAGS) & EXT4_DIR_HASH_FLAGS;
-        let sb = &mut partition[offset..offset + EXT4_SUPERBLOCK];
-        let valid_checksum =
-            checksummed && ext4_superblock_checksum(sb) == le_u32(sb, EXT4_S_CHECKSUM);
-        let s_flags = (le_u32(sb, EXT4_S_FLAGS) & !EXT4_DIR_HASH_FLAGS) | flags;
-        sb[EXT4_S_FLAGS..EXT4_S_FLAGS + 4].copy_from_slice(&s_flags.to_le_bytes());
-        if valid_checksum {
-            let checksum = ext4_superblock_checksum(sb);
-            sb[EXT4_S_CHECKSUM..].copy_from_slice(&checksum.to_le_bytes());
-        }
-    }
-    Ok(())
 }
 
 /// Read every regular file from an ext4 filesystem image.
@@ -996,9 +860,6 @@ fn compare_contents<E: FileTree, A: FileTree>(
     })
 }
 
-/// The xattr holding an entry's SELinux label.
-pub const SELINUX_XATTR: &[u8] = b"security.selinux";
-
 /// Log the comparison of an entry.
 fn log_entry(file: &FileReport, expected: Option<&Entry>, actual: Option<&Entry>) {
     if eventlog::enabled() {
@@ -1013,46 +874,6 @@ fn log_entry(file: &FileReport, expected: Option<&Entry>, actual: Option<&Entry>
             }),
         );
     }
-}
-
-/// Compare the metadata of two filesystems' entries, but not their contents.
-/// Entries that differ only in the `expected_xattr` are expected differences;
-/// identical entries are logged but not returned.
-pub fn compare_entries(
-    expected: &BTreeMap<FsPath, Entry>,
-    actual: &BTreeMap<FsPath, Entry>,
-    expected_xattr: &[u8],
-) -> Vec<FileReport> {
-    let without_xattr = |entry: &Entry| {
-        let mut entry = entry.clone();
-        entry.xattrs.remove(expected_xattr);
-        entry
-    };
-    let mut reports = Vec::new();
-    for path in union_keys(expected, actual) {
-        let (e, a) = (expected.get(path), actual.get(path));
-        let file = match (e, a) {
-            (Some(e), Some(a)) => {
-                let differences = e.differences(a);
-                if differences.is_empty() {
-                    report(path, Status::Match, "identical")
-                } else if without_xattr(e).differences(&without_xattr(a)).is_empty() {
-                    report(path, Status::ExpectedDifference, differences.join("; "))
-                } else {
-                    report(path, Status::Mismatch, differences.join("; "))
-                }
-            }
-            (e, _) => {
-                let side = if e.is_none() { "rebuilt" } else { "published" };
-                report(path, Status::Mismatch, format!("missing from {side} image"))
-            }
-        };
-        log_entry(&file, e, a);
-        if file.status != Status::Match {
-            reports.push(file);
-        }
-    }
-    reports
 }
 
 /// Compare two root filesystems entry by entry, apart from timestamps. Contents may
@@ -1362,62 +1183,6 @@ pub(crate) mod tests {
             size,
             device: None,
         }
-    }
-
-    #[test]
-    fn entries_may_differ_only_in_selinux_label() {
-        use Status::{ExpectedDifference, Mismatch};
-        let label: &[(&str, &[u8])] = &[("security.selinux", b"system_u:object_r:etc_t:s0")];
-        let relabel: &[(&str, &[u8])] = &[("security.selinux", b"system_u:object_r:any_t:s0")];
-        let capability: &[u8] = &[1, 0, 0, 2, 0, 0x20, 0, 0];
-        let tree = |entries: &[(&str, Entry)]| -> BTreeMap<FsPath, Entry> {
-            entries
-                .iter()
-                .map(|(p, e)| (p.as_bytes().to_vec(), e.clone()))
-                .collect()
-        };
-        let rebuilt = tree(&[
-            ("/", entry(0o755, 0, 0, &[])),
-            ("/same", entry(0o644, 0, 0, label)),
-            ("/relabeled", entry(0o644, 0, 0, label)),
-            ("/mode", entry(0o644, 0, 0, label)),
-            ("/owner", entry(0o644, 0, 0, &[])),
-            ("/other-xattr", entry(0o644, 0, 0, &[])),
-            ("/capable", entry(0o644, 0, 0, label)),
-            ("/only-rebuilt", entry(0o644, 0, 0, &[])),
-        ]);
-        let published = tree(&[
-            ("/", entry(0o755, 0, 0, label)),
-            ("/same", entry(0o644, 0, 0, label)),
-            ("/relabeled", entry(0o644, 0, 0, relabel)),
-            ("/mode", entry(0o600, 0, 0, relabel)),
-            ("/owner", entry(0o644, 5, 0, label)),
-            (
-                "/other-xattr",
-                entry(0o644, 0, 0, &[label[0], ("user.x", b"1")]),
-            ),
-            (
-                "/capable",
-                entry(
-                    0o644,
-                    0,
-                    0,
-                    &[("security.capability", capability), label[0]],
-                ),
-            ),
-        ]);
-        assert_statuses(
-            compare_entries(&rebuilt, &published, SELINUX_XATTR),
-            &[
-                ("/", ExpectedDifference),
-                ("/relabeled", ExpectedDifference),
-                ("/mode", Mismatch),
-                ("/owner", Mismatch),
-                ("/other-xattr", Mismatch),
-                ("/capable", Mismatch),
-                ("/only-rebuilt", Mismatch),
-            ],
-        );
     }
 
     /// An in-memory tree whose files can be opened, for testing `compare_trees`.

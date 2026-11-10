@@ -127,7 +127,6 @@ bytes = "1"
 clap = "4"
 coldsnap = { version = "0.11", default-features = false }
 coset = { version = "0.3", features = ["std"] }
-crc = "3"
 crc32fast = "1"
 daemonize = "0.5"
 darling = "0.23"
