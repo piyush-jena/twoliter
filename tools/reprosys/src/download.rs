@@ -2,6 +2,7 @@
 
 use crate::ami::AmiInfo;
 use crate::error::Result;
+use aws_sdk_ebs::operation::list_snapshot_blocks::ListSnapshotBlocksError;
 use aws_sdk_ebs::Client as EbsClient;
 use aws_sdk_ec2::types::SnapshotState;
 use aws_sdk_ec2::Client as Ec2Client;
@@ -16,6 +17,10 @@ const COPY_POLL_INTERVAL: Duration = Duration::from_secs(15);
 const COPY_TIMEOUT: Duration = Duration::from_secs(3 * 60 * 60);
 /// Consecutive DescribeSnapshots failures tolerated while waiting for a copy.
 const MAX_DESCRIBE_FAILURES: u32 = 5;
+/// How long to keep retrying a completed snapshot that the EBS direct APIs do not find yet. They
+/// lag behind EC2: a snapshot uploaded through them reads as completed in DescribeSnapshots about
+/// a minute before ListSnapshotBlocks finds it.
+const NOT_FOUND_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 /// Paths of the downloaded images.
 #[derive(Debug, Serialize, Deserialize)]
@@ -90,6 +95,8 @@ impl Downloader {
 
     async fn download_snapshot(&self, info: &AmiInfo, snapshot: &str, path: &Path) -> Result<()> {
         if info.owned_by_caller {
+            // An AMI registered moments ago can still have pending snapshots.
+            self.wait_for_snapshot(snapshot).await?;
             eprintln!("Downloading {snapshot} to {}", path.display());
             return self.coldsnap(snapshot, path).await;
         }
@@ -106,17 +113,41 @@ impl Downloader {
     }
 
     async fn coldsnap(&self, snapshot: &str, path: &Path) -> Result<()> {
-        // coldsnap refuses to overwrite an existing file.
-        if path.exists() {
-            std::fs::remove_file(path)
-                .whatever_context(format!("failed to remove {}", path.display()))?;
+        let start = Instant::now();
+        loop {
+            // coldsnap refuses to overwrite an existing file.
+            if path.exists() {
+                std::fs::remove_file(path)
+                    .whatever_context(format!("failed to remove {}", path.display()))?;
+            }
+            let result = SnapshotDownloader::new(self.ebs.clone())
+                .download_to_file(snapshot, path, None, None, None)
+                .await;
+            match result {
+                Ok(()) => return Ok(()),
+                Err(e) if is_not_found(&e) && start.elapsed() < NOT_FOUND_TIMEOUT => {
+                    eprintln!(
+                        "Snapshot {snapshot} is not readable through the EBS direct APIs yet; \
+                         retrying in {}s",
+                        COPY_POLL_INTERVAL.as_secs()
+                    );
+                    tokio::time::sleep(COPY_POLL_INTERVAL).await;
+                }
+                Err(e) if is_not_found(&e) => {
+                    return Err(e).whatever_context(format!(
+                        "the EBS direct APIs did not find completed snapshot {snapshot} within \
+                         {} minutes",
+                        NOT_FOUND_TIMEOUT.as_secs() / 60
+                    ));
+                }
+                Err(e) => {
+                    return Err(e).whatever_context(format!(
+                        "failed to download snapshot {snapshot}; the caller needs \
+                         ebs:ListSnapshotBlocks and ebs:GetSnapshotBlock"
+                    ));
+                }
+            }
         }
-        SnapshotDownloader::new(self.ebs.clone())
-            .download_to_file(snapshot, path, None, None, None)
-            .await
-            .whatever_context(format!(
-                "failed to download snapshot {snapshot}; the caller needs ebs:ListSnapshotBlocks and ebs:GetSnapshotBlock"
-            ))
     }
 
     async fn copy_snapshot(&self, info: &AmiInfo, snapshot: &str) -> Result<String> {
@@ -173,8 +204,8 @@ impl Downloader {
                 Err(e) if failures + 1 < MAX_DESCRIBE_FAILURES => {
                     failures += 1;
                     eprintln!(
-                        "Warning: failed to describe snapshot copy {snapshot} (attempt {failures} \
-                         of {MAX_DESCRIBE_FAILURES}): {}",
+                        "Warning: failed to describe snapshot {snapshot} (attempt {failures} of \
+                         {MAX_DESCRIBE_FAILURES}): {}",
                         snafu::Report::from_error(e)
                     );
                     tokio::time::sleep(COPY_POLL_INTERVAL).await;
@@ -193,20 +224,29 @@ impl Downloader {
                 Some(SnapshotState::Completed) => return Ok(()),
                 Some(SnapshotState::Error) => {
                     whatever!(
-                        "snapshot copy {snapshot} failed: {}",
+                        "snapshot {snapshot} failed: {}",
                         snap.state_message().unwrap_or("unknown error")
                     );
                 }
                 _ => {}
             }
             if start.elapsed() > COPY_TIMEOUT {
-                whatever!("timed out waiting for snapshot copy {snapshot}");
+                whatever!("timed out waiting for snapshot {snapshot}");
             }
             eprintln!(
-                "Waiting for snapshot copy {snapshot} ({})",
+                "Waiting for snapshot {snapshot} ({})",
                 snap.progress().unwrap_or("0%")
             );
             tokio::time::sleep(COPY_POLL_INTERVAL).await;
         }
     }
+}
+
+/// Whether the EBS direct APIs reported the snapshot as not found.
+fn is_not_found(e: &coldsnap::DownloadError) -> bool {
+    std::iter::successors(Some(e as &dyn std::error::Error), |e| e.source()).any(|e| {
+        // An SDK service error's source is the operation's error.
+        e.downcast_ref::<ListSnapshotBlocksError>()
+            .is_some_and(ListSnapshotBlocksError::is_resource_not_found_exception)
+    })
 }
