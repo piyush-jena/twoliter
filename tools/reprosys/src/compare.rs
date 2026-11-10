@@ -132,10 +132,11 @@ const NOTES: &[&str] = &[
      the data the table covers (the device-mapper target length and the verity data block \
      count).",
     "When ROOT-A differs, its entries are compared one by one: type, permissions, ownership, \
-     symlink targets, device numbers, extended attributes (such as SELinux labels and file \
-     capabilities) and contents. Kernel modules come from the kit already signed, so they must \
-     match like any other file. Timestamps are not compared. Only erofs root filesystems are \
-     supported; any other ROOT-A that differs fails.",
+     symlink targets, extended attributes (such as SELinux labels and file capabilities) and \
+     contents. Kernel modules come from the kit already signed, so they must match like any \
+     other file. Timestamps are not compared. Only erofs root filesystems are supported, and \
+     device nodes, which Bottlerocket root filesystems do not have, are not; any other ROOT-A \
+     that differs fails.",
     "The SBOMs (/usr/share/bottlerocket/spdx-sbom.json and cyclonedx-sbom.json) in ROOT-A are \
      known to differ and are not compared, since sbomtool output is not reproducible. The TUF \
      root role (/usr/share/updog/root.json) is compared like any other file: the rebuild embeds \
@@ -1276,8 +1277,8 @@ mod rootfs_tests {
         all_root: bool,
         /// Value of `user.big` on /etc/os-release, long enough to be shown by digest.
         big_xattr: &'a [u8],
-        /// The device number of a character device at /console: 1:3 or 1:5.
-        console: Option<(u32, u32)>,
+        /// Whether /console is a character device, a copy of /dev/null.
+        console: bool,
     }
 
     const BIG_XATTR: &[u8] = &[b'x'; 600];
@@ -1288,7 +1289,7 @@ mod rootfs_tests {
         os_release: "v1",
         all_root: true,
         big_xattr: BIG_XATTR,
-        console: None,
+        console: false,
     };
 
     fn set_xattr(path: &Path, name: &str, value: &[u8]) {
@@ -1348,13 +1349,9 @@ mod rootfs_tests {
         if rootfs.all_root {
             cmd.arg("--all-root");
         }
-        if let Some(console) = rootfs.console {
-            // Creating device nodes needs root, so archive existing ones under a new name.
-            let dev = match console {
-                (1, 3) => "dev/null",
-                (1, 5) => "dev/zero",
-                _ => unreachable!("no device node for {console:?}"),
-            };
+        if rootfs.console {
+            // Creating device nodes needs root, so archive an existing one under a new name.
+            let dev = "dev/null";
             let tar = dir.join(format!("{name}.tar"));
             let output = Command::new("tar")
                 .args(["--format=posix", "--xattrs", "--xattrs-include=user.*"])
@@ -1407,9 +1404,10 @@ mod rootfs_tests {
         };
         let mut big = BIG_XATTR.to_vec();
         *big.last_mut().unwrap() = b'y';
-        // Device nodes are compared, though extraction skips them.
-        let null = Rootfs {
-            console: Some((1, 3)),
+        // Bottlerocket root filesystems hold no device nodes, so one fails ROOT-A even when
+        // both sides have it and the rest differs only in an SBOM.
+        let console = Rootfs {
+            console: true,
             ..DEFAULT
         };
         for (i, (rebuilt, published, status)) in [
@@ -1443,9 +1441,9 @@ mod rootfs_tests {
                 Status::Mismatch,
             ),
             (
-                &null,
+                &console,
                 Rootfs {
-                    console: Some((1, 5)),
+                    console: true,
                     ..new_sbom
                 },
                 Status::Mismatch,
@@ -1463,6 +1461,9 @@ mod rootfs_tests {
             .unwrap();
             let r = super::tests::region(&report.os, "ROOT-A");
             assert_eq!(r.status, *status, "{i}: {r:#?}");
+            if rebuilt.console {
+                assert!(r.detail.contains("is a character device"), "{i}: {r:#?}");
+            }
         }
     }
 

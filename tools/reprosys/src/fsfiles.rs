@@ -567,19 +567,17 @@ pub enum Kind {
 }
 
 /// The file type bits of an inode's mode.
-pub const S_IFMT: u16 = 0xf000;
-pub const S_IFCHR: u16 = 0x2000;
-pub const S_IFBLK: u16 = 0x6000;
+const S_IFMT: u16 = 0xf000;
 
 impl Kind {
-    /// The kind of entry an inode's mode describes, as in erofs and ext4.
+    /// The kind of entry an inode's mode describes, as erofs records it.
     pub fn from_mode(mode: u16) -> Option<Self> {
         Some(match mode & S_IFMT {
             0x8000 => Kind::File,
             0x4000 => Kind::Directory,
             0xa000 => Kind::Symlink,
-            S_IFCHR => Kind::CharDevice,
-            S_IFBLK => Kind::BlockDevice,
+            0x2000 => Kind::CharDevice,
+            0x6000 => Kind::BlockDevice,
             0x1000 => Kind::Fifo,
             0xc000 => Kind::Socket,
             _ => return None,
@@ -620,9 +618,6 @@ pub struct Entry {
     pub xattrs: Xattrs,
     /// Size of a regular file's contents, which are compared separately.
     pub size: u64,
-    /// Major and minor number of a character or block device.
-    #[serde(serialize_with = "device_number")]
-    pub device: Option<(u32, u32)>,
 }
 
 fn octal_mode<S: serde::Serializer>(mode: &u32, s: S) -> std::result::Result<S::Ok, S::Error> {
@@ -634,15 +629,6 @@ fn lossy_text<S: serde::Serializer>(
     s: S,
 ) -> std::result::Result<S::Ok, S::Error> {
     text.as_deref().map(display).serialize(s)
-}
-
-fn device_number<S: serde::Serializer>(
-    device: &Option<(u32, u32)>,
-    s: S,
-) -> std::result::Result<S::Ok, S::Error> {
-    device
-        .map(|(major, minor)| format!("{major}:{minor}"))
-        .serialize(s)
 }
 
 /// Xattrs by name, with values as text or hex.
@@ -658,14 +644,6 @@ fn xattrs_json<S: serde::Serializer>(
         };
         (display(name), value)
     }))
-}
-
-/// Split a `new_encode_dev` device number into its major and minor number.
-pub fn decode_device(dev: u32) -> (u32, u32) {
-    (
-        (dev & 0xf_ff00) >> 8,
-        (dev & 0xff) | ((dev >> 12) & 0xf_ff00),
-    )
 }
 
 /// Values longer than this are shown by size and digest.
@@ -712,18 +690,6 @@ impl Entry {
                 "symlink target {} vs {}",
                 target(&self.link),
                 target(&other.link)
-            ));
-        }
-        if self.device != other.device {
-            let device = |d: Option<(u32, u32)>| {
-                d.map_or("<none>".to_string(), |(major, minor)| {
-                    format!("{major}:{minor}")
-                })
-            };
-            out.push(format!(
-                "device {} vs {}",
-                device(self.device),
-                device(other.device)
             ));
         }
         for name in union_keys(&self.xattrs, &other.xattrs) {
@@ -1181,7 +1147,6 @@ pub(crate) mod tests {
                 .map(|(n, v)| (n.as_bytes().to_vec(), v.to_vec()))
                 .collect(),
             size,
-            device: None,
         }
     }
 

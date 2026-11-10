@@ -5,9 +5,7 @@
 
 use crate::error::Result;
 use crate::eventlog;
-use crate::fsfiles::{
-    self, display, Entry, FileTree, FsPath, Kind, Xattrs, S_IFBLK, S_IFCHR, S_IFMT,
-};
+use crate::fsfiles::{self, display, Entry, FileTree, FsPath, Kind, Xattrs};
 use regex::bytes::Regex;
 use serde_json::json;
 use snafu::{ensure_whatever, OptionExt, ResultExt};
@@ -116,7 +114,6 @@ struct RawInode {
     uid: u32,
     gid: u32,
     size: u64,
-    device: Option<(u32, u32)>,
     xattrs: Xattrs,
 }
 
@@ -300,8 +297,6 @@ impl ErofsTree {
                 u64::from(u32_at(8)),
             )
         };
-        let device =
-            matches!(mode & S_IFMT, S_IFCHR | S_IFBLK).then(|| fsfiles::decode_device(u32_at(16)));
         let icount = usize::from(u16_at(2));
         let xattrs = self.xattrs(file, sb, nid, inode_pos + inode_size as u64, icount)?;
         Ok(RawInode {
@@ -309,7 +304,6 @@ impl ErofsTree {
             uid,
             gid,
             size,
-            device,
             xattrs,
         })
     }
@@ -494,7 +488,6 @@ impl FileTree for ErofsTree {
         let sb = self.superblock(&image)?;
         let root = self.root();
         let mut entries = BTreeMap::new();
-        let mut not_extracted = Vec::new();
         for (fs_path, nid, file_type) in listed {
             let name = display(&fs_path);
             let kind = file_type_kind(file_type).with_whatever_context(|| {
@@ -509,12 +502,11 @@ impl FileTree for ErofsTree {
                 kind.name()
             );
             let path = root.join(OsStr::from_bytes(&fs_path[1..]));
-            // Extraction skips device nodes, which need privileges to create.
             let extracted = fs::symlink_metadata(&path).map(|m| extracted_kind(m.file_type()));
             let link = match kind {
+                // Bottlerocket root filesystems hold none, and extraction cannot create them.
                 Kind::CharDevice | Kind::BlockDevice => {
-                    not_extracted.push(name);
-                    None
+                    snafu::whatever!("{name} is a {}, which is not supported", kind.name());
                 }
                 _ if extracted.ok() != Some(kind) => {
                     snafu::whatever!("{name} is in the erofs image but was not extracted");
@@ -534,7 +526,6 @@ impl FileTree for ErofsTree {
                 link,
                 xattrs: inode.xattrs,
                 size: if kind == Kind::File { inode.size } else { 0 },
-                device: inode.device,
             };
             fsfiles::insert_unique(&mut entries, fs_path, (path, entry))?;
         }
@@ -544,7 +535,6 @@ impl FileTree for ErofsTree {
             json!({
                 "image": self.image,
                 "entries": entries.len(),
-                "device_nodes_not_extracted": not_extracted,
             }),
         );
         Ok(entries)
