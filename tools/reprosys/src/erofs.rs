@@ -71,16 +71,10 @@ fn parse_total_file_size(output: &str) -> Option<u64> {
     })
 }
 
-/// Images whose block count does not fit the superblock's 32-bit `blocks`.
-const INCOMPAT_48BIT: u32 = 0x80;
-
-/// The fields of the erofs superblock needed to size the filesystem and to
-/// find inodes and shared xattrs.
+/// The fields of the erofs superblock needed to find inodes and shared xattrs.
 struct Superblock {
     meta_start: u64,
     xattr_start: u64,
-    /// The size of the filesystem in bytes: its block count times its block size.
-    size: u64,
     feature_incompat: u32,
 }
 
@@ -104,26 +98,9 @@ impl Superblock {
         Ok(Self {
             meta_start: u64::from(u32_at(40)) << block_bits,
             xattr_start: u64::from(u32_at(44)) << block_bits,
-            size: u64::from(u32_at(36)) << block_bits,
             feature_incompat: u32_at(80),
         })
     }
-}
-
-/// The size in bytes of the erofs filesystem in the `len` bytes at `offset`
-/// of `file`, as its superblock records it, which must fit the partition.
-pub fn filesystem_size(file: &File, offset: u64, len: u64) -> Result<u64> {
-    let sb = Superblock::read(file, offset, len)?;
-    ensure_whatever!(
-        sb.feature_incompat & INCOMPAT_48BIT == 0,
-        "the size of 48-bit erofs filesystems is not supported"
-    );
-    ensure_whatever!(
-        sb.size <= len,
-        "the erofs superblock records {} bytes, more than the {len}-byte partition",
-        sb.size
-    );
-    Ok(sb.size)
 }
 
 /// A `dump.erofs --ls` listing: the directory's inode and its entries.
@@ -631,22 +608,20 @@ mod tests {
     }
 
     #[test]
-    fn reads_filesystem_size() {
+    fn reads_superblock() {
         let f = tempfile::tempfile().unwrap();
         let sb = SUPERBLOCK_OFFSET + 4096;
         f.write_all_at(&MAGIC.to_le_bytes(), sb).unwrap();
         f.write_all_at(&[12], sb + 12).unwrap();
-        f.write_all_at(&300u32.to_le_bytes(), sb + 36).unwrap();
+        f.write_all_at(&3u32.to_le_bytes(), sb + 40).unwrap();
         f.set_len(4096 + (2 << 20)).unwrap();
         assert!(is_erofs(&f, 4096).unwrap());
         assert!(!is_erofs(&f, 0).unwrap());
         assert!(!is_erofs(&f, 1 << 30).unwrap());
-        assert_eq!(filesystem_size(&f, 4096, 2 << 20).unwrap(), 300 * 4096);
-        // It must fit the partition, and 48-bit block counts are not read.
-        assert!(filesystem_size(&f, 4096, 300 * 4096 - 1).is_err());
-        f.write_all_at(&INCOMPAT_48BIT.to_le_bytes(), sb + 80)
-            .unwrap();
-        assert!(filesystem_size(&f, 4096, 2 << 20).is_err());
-        assert!(filesystem_size(&f, 0, 2 << 20).is_err());
+        let read = |offset, len| Superblock::read(&f, offset, len);
+        assert_eq!(read(4096, 2 << 20).unwrap().meta_start, 3 * 4096);
+        // It must fit the partition and be an erofs superblock.
+        assert!(read(4096, SUPERBLOCK_OFFSET).is_err());
+        assert!(read(0, 2 << 20).is_err());
     }
 }

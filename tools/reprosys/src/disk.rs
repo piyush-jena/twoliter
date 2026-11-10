@@ -30,8 +30,7 @@ pub enum Policy {
     SaltDependent,
     /// Files may differ only in signing-dependent content.
     SigningDependent,
-    /// The kernel command line must match except for the verity root hash, salt
-    /// and data size.
+    /// The kernel command line must match except for the verity root hash and salt.
     BootConfig,
 }
 

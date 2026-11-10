@@ -5,6 +5,7 @@ use clap::Parser;
 use path_absolutize::Absolutize;
 use semver::Version;
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Instant;
@@ -26,6 +27,10 @@ const REPROSYS_NOT_VERIFIED: i32 = 2;
 /// Lines of the build log shown when the build fails.
 const BUILD_LOG_TAIL: usize = 40;
 
+/// The TUF repository the rebuild is built for. The build embeds its root role,
+/// `roles/<repo>.root.json`, so the checkout's own `default` role is left alone.
+const VERIFY_PUBLISH_REPO: &str = "reprosys-verify";
+
 #[derive(Debug, Parser)]
 pub(crate) enum VerifyCommand {
     Ami(VerifyAmi),
@@ -43,8 +48,8 @@ impl VerifyCommand {
 ///
 /// Only variants with an erofs root filesystem are supported.
 ///
-/// Needs Docker, git, cargo-make, lz4, erofs-utils, and
-/// AWS credentials allowing ec2:DescribeImages,
+/// Needs Docker, git, cargo-make, lz4, erofs-utils, the TUF root role the AMI was built with
+/// (see --root-role), and AWS credentials allowing ec2:DescribeImages,
 /// ec2:DescribeSnapshots, ec2:CopySnapshot, ec2:DeleteSnapshot, ebs:ListSnapshotBlocks and
 /// ebs:GetSnapshotBlock.
 #[derive(Debug, Parser)]
@@ -69,6 +74,12 @@ pub(crate) struct VerifyAmi {
     /// The git repository to clone the source from.
     #[clap(long, default_value = DEFAULT_REPO)]
     pub(crate) repo: String,
+
+    /// The TUF root role the AMI was built with. Defaults to the highest-numbered
+    /// `<N>.root.json` at the top of the source checkout, which is the role official Bottlerocket
+    /// images ship.
+    #[clap(long = "root-role")]
+    pub(crate) root_role: Option<PathBuf>,
 
     /// Directory for the source checkout, downloaded images, report and log. Defaults to
     /// `./twoliter-verify-<ami-id>`.
@@ -187,6 +198,11 @@ impl VerifyAmi {
                 )
             })?;
         }
+        let root_role = match &self.root_role {
+            Some(role) => role.clone(),
+            None => committed_root_role(&source_dir)?,
+        };
+        install_root_role(&source_dir, &root_role).await?;
 
         let images_dir = work_dir.join("images");
         cleanup.push(images_dir.clone());
@@ -436,6 +452,52 @@ async fn check_twoliter_version(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// The highest-numbered TUF root role, `<N>.root.json`, at the top of the checkout `dir`.
+fn committed_root_role(dir: &Path) -> Result<PathBuf> {
+    let entries =
+        std::fs::read_dir(dir).with_context(|| format!("Unable to list '{}'", dir.display()))?;
+    let mut roles = Vec::new();
+    for entry in entries {
+        let path = entry
+            .with_context(|| format!("Unable to list '{}'", dir.display()))?
+            .path();
+        let version = path
+            .file_name()
+            .and_then(|name| name.to_str()?.strip_suffix(".root.json"))
+            .filter(|n| n.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|n| n.parse::<u64>().ok());
+        if let Some(version) = version.filter(|_| path.is_file()) {
+            roles.push((version, path));
+        }
+    }
+    let highest = roles.into_iter().max().map(|(_, path)| path);
+    highest.with_context(|| {
+        format!(
+            "No TUF root role named '<N>.root.json' at the top of '{}'; pass --root-role with \
+             the root role the AMI was built with",
+            dir.display()
+        )
+    })
+}
+
+/// Install `role` in the checkout `dir` as the root role the build embeds.
+async fn install_root_role(dir: &Path, role: &Path) -> Result<()> {
+    let contents = fs::read(role).await?;
+    let roles = dir.join("roles");
+    fs::create_dir_all(&roles).await?;
+    fs::write(
+        roles.join(format!("{VERIFY_PUBLISH_REPO}.root.json")),
+        &contents,
+    )
+    .await?;
+    info!(
+        "The rebuild embeds TUF root role '{}' (sha256 {:x})",
+        role.display(),
+        Sha256::digest(&contents)
+    );
+    Ok(())
+}
+
 /// Whether the variant enables the `erofs-root-partition` image feature, or None if its manifest
 /// is missing.
 async fn uses_erofs_root(dir: &Path, variant: &str) -> Result<Option<bool>> {
@@ -460,8 +522,8 @@ async fn uses_erofs_root(dir: &Path, variant: &str) -> Result<Option<bool>> {
     ))
 }
 
-/// Build the variant with the checkout's own entry point and decompress the images. Output goes
-/// to `log` if given.
+/// Build the variant with the checkout's own entry point and the root role `install_root_role`
+/// installed, and decompress the images. Output goes to `log` if given.
 async fn build(
     source_dir: &Path,
     images_dir: &Path,
@@ -474,6 +536,10 @@ async fn build(
         .arg(format!("BUILDSYS_VARIANT={}", info.variant))
         .arg("-e")
         .arg(format!("BUILDSYS_ARCH={}", info.arch))
+        .arg("-e")
+        .arg(format!("PUBLISH_REPO={VERIFY_PUBLISH_REPO}"))
+        // No signing key exists for the role, and building an image needs none.
+        .args(["-e", "ALLOW_MISSING_KEY=true"])
         .kill_on_drop(true);
     match log {
         Some(log) => {
@@ -591,6 +657,32 @@ mod tests {
             let found = uses_erofs_root(dir.path(), "aws-dev").await.unwrap();
             assert_eq!(found, Some(expected));
         }
+    }
+
+    #[test]
+    fn finds_the_highest_numbered_root_role() {
+        let dir = TempDir::new().unwrap();
+        let error = committed_root_role(dir.path()).unwrap_err();
+        assert!(error.to_string().contains("pass --root-role"), "{error}");
+        for name in [
+            "default.root.json",
+            "+12.root.json",
+            ".root.json",
+            "9.root.json",
+            "10.root.json",
+            "11.root.json.bak",
+        ] {
+            std::fs::write(dir.path().join(name), name).unwrap();
+        }
+        std::fs::create_dir(dir.path().join("12.root.json")).unwrap();
+        assert_eq!(
+            committed_root_role(dir.path()).unwrap(),
+            dir.path().join("10.root.json")
+        );
+
+        let unnumbered = TempDir::new().unwrap();
+        std::fs::write(unnumbered.path().join("default.root.json"), "{}").unwrap();
+        assert!(committed_root_role(unnumbered.path()).is_err());
     }
 
     #[tokio::test]
