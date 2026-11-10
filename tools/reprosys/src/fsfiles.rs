@@ -2,7 +2,6 @@
 
 use crate::error::Result;
 use crate::eventlog;
-use crate::kmod;
 use crate::pe;
 use crate::verity;
 use crc::{Algorithm, Crc};
@@ -55,16 +54,11 @@ const KEY_SECTIONS: &[&str] = &[".vendor_cert", ".pubkey"];
 /// The PE section of a UKI that holds the kernel command line.
 pub const CMDLINE_SECTION: &str = ".cmdline";
 
-/// Largest file read into memory for a content-aware comparison.
-const MAX_BUFFERED_SIZE: u64 = 256 << 20;
-
 /// Which differences are expected in a filesystem.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rules {
     /// EFI-A and BOOT-A: signing-dependent content.
     Boot,
-    /// ROOT-A: module signatures, the TUF root role and the SBOMs.
-    Root,
     /// PRIVATE: none; compared only to explain a difference.
     Exact,
 }
@@ -531,50 +525,15 @@ fn normalize_pe(data: &[u8], pe: &PeImage, allowed: &BTreeSet<(String, usize)>) 
     pe::normalize(data, &cleared).whatever_context("failed to read PE headers")
 }
 
-/// Compare a kernel module, ignoring its appended signature.
-fn compare_module(path: &[u8], expected: &[u8], actual: &[u8]) -> (Status, String) {
-    let unsigned = |data: &[u8]| -> Result<Option<Vec<u8>>> {
-        let module = kmod::decompress(path, data)?;
-        Ok(kmod::split_signature(&module)?.map(|(body, _)| body.to_vec()))
-    };
-    match (unsigned(expected), unsigned(actual)) {
-        (Ok(Some(e)), Ok(Some(a))) if e == a => (
-            Status::ExpectedDifference,
-            "differs only in the appended module signature".to_string(),
-        ),
-        (Ok(Some(e)), Ok(Some(a))) => (
-            Status::Mismatch,
-            format!(
-                "module differs beyond its signature (unsigned: {} vs {})",
-                ContentDigest::of_slice(&e),
-                ContentDigest::of_slice(&a)
-            ),
-        ),
-        (Ok(None), Ok(None)) => (
-            Status::Mismatch,
-            format!(
-                "unsigned module contents differ ({} vs {})",
-                ContentDigest::of_slice(expected),
-                ContentDigest::of_slice(actual)
-            ),
-        ),
-        (Ok(e), Ok(a)) => {
-            let side = |m: &Option<Vec<u8>>| if m.is_some() { "signed" } else { "unsigned" };
-            (
-                Status::Mismatch,
-                format!(
-                    "module is {} in the rebuilt image but {} in the published image",
-                    side(&e),
-                    side(&a)
-                ),
-            )
-        }
-        (Err(e), _) | (_, Err(e)) => (Status::Mismatch, format!("failed to read module: {e}")),
+/// Why a ROOT-A file whose contents differ is expected to differ, if it is.
+fn expected_root_difference(path: &[u8]) -> Option<&'static str> {
+    if path.ends_with(TUF_ROOT_ROLE) {
+        Some("TUF root role; skipped, rebuilds generate their own without the release keys")
+    } else if SBOMS.iter().any(|s| path.ends_with(s)) {
+        Some("SBOM; skipped, sbomtool output is not reproducible")
+    } else {
+        None
     }
-}
-
-fn is_sbom(path: &[u8]) -> bool {
-    SBOMS.iter().any(|s| path.ends_with(s))
 }
 
 fn report(path: &[u8], status: Status, detail: impl Into<String>) -> FileReport {
@@ -619,26 +578,6 @@ fn compare_file(
                     path,
                     Status::ExpectedDifference,
                     "differs only in the verity root hash, salt and data size",
-                );
-            }
-        }
-        Rules::Root => {
-            if kmod::is_module(path) {
-                let (status, detail) = compare_module(path, expected, actual);
-                return report(path, status, detail);
-            }
-            if path.ends_with(TUF_ROOT_ROLE) {
-                return report(
-                    path,
-                    Status::ExpectedDifference,
-                    "TUF root role; skipped, rebuilds generate their own without the release keys",
-                );
-            }
-            if is_sbom(path) {
-                return report(
-                    path,
-                    Status::ExpectedDifference,
-                    "SBOM; skipped, sbomtool output is not reproducible",
                 );
             }
         }
@@ -1014,21 +953,12 @@ impl fmt::Display for ContentDigest {
     }
 }
 
-fn read_contents(reader: impl Read, size: u64) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-    reader
-        .take(size)
-        .read_to_end(&mut out)
-        .whatever_context("failed to read file")?;
-    Ok(out)
-}
-
-fn log_contents(path: &[u8], method: &str, expected: &ContentDigest, actual: &ContentDigest) {
+fn log_contents(path: &[u8], expected: &ContentDigest, actual: &ContentDigest) {
     eventlog::event(
         "contents",
         json!({
             "path": display(path),
-            "method": method,
+            "method": "sha256",
             "rebuilt": expected,
             "published": actual,
         }),
@@ -1038,13 +968,12 @@ fn log_contents(path: &[u8], method: &str, expected: &ContentDigest, actual: &Co
 /// A regular file in a tree: the tree, the file's handle and its size.
 type TreeFile<'a, T> = (&'a T, &'a <T as FileTree>::Handle, u64);
 
-/// Compare a regular file in both trees. Published files larger than both
-/// `size_limit` and the rebuilt file are not read.
+/// Compare a regular file in both trees by the digests of its contents. Published
+/// files larger than both `size_limit` and the rebuilt file are not read.
 fn compare_contents<E: FileTree, A: FileTree>(
     path: &[u8],
     (e_tree, e_handle, e_size): TreeFile<'_, E>,
     (a_tree, a_handle, a_size): TreeFile<'_, A>,
-    rules: Rules,
     size_limit: u64,
 ) -> Result<FileReport> {
     if a_size > size_limit.max(e_size) {
@@ -1057,35 +986,13 @@ fn compare_contents<E: FileTree, A: FileTree>(
             ),
         ));
     }
-    let content_aware = rules == Rules::Root
-        && (kmod::is_module(path) || path.ends_with(TUF_ROOT_ROLE) || is_sbom(path));
-    if content_aware {
-        if e_size.max(a_size) > MAX_BUFFERED_SIZE {
-            return Ok(report(
-                path,
-                Status::Mismatch,
-                format!(
-                    "too large to compare ({e_size} vs {a_size} bytes, limit {MAX_BUFFERED_SIZE})"
-                ),
-            ));
-        }
-        let expected = read_contents(e_tree.open(e_handle)?, e_size)?;
-        let actual = read_contents(a_tree.open(a_handle)?, a_size)?;
-        if eventlog::enabled() {
-            log_contents(
-                path,
-                "content-aware",
-                &ContentDigest::of_slice(&expected),
-                &ContentDigest::of_slice(&actual),
-            );
-        }
-        return Ok(compare_file(path, Some(&expected), Some(&actual), rules));
-    }
     let expected = ContentDigest::of(e_tree.open(e_handle)?, e_size)?;
     let actual = ContentDigest::of(a_tree.open(a_handle)?, a_size)?;
-    log_contents(path, "sha256", &expected, &actual);
+    log_contents(path, &expected, &actual);
     Ok(if expected == actual {
         report(path, Status::Match, "identical")
+    } else if let Some(reason) = expected_root_difference(path) {
+        report(path, Status::ExpectedDifference, reason)
     } else {
         report(
             path,
@@ -1154,12 +1061,11 @@ pub fn compare_entries(
     reports
 }
 
-/// Compare two filesystems entry by entry, apart from timestamps. Identical
-/// entries are omitted.
+/// Compare two root filesystems entry by entry, apart from timestamps. Contents may
+/// differ only where `expected_root_difference` allows. Identical entries are omitted.
 pub fn compare_trees<E: FileTree, A: FileTree>(
     expected: &E,
     actual: &A,
-    rules: Rules,
     size_limit: u64,
 ) -> Result<Vec<FileReport>> {
     let expected_entries = expected.entries()?;
@@ -1179,7 +1085,6 @@ pub fn compare_trees<E: FileTree, A: FileTree>(
                         path,
                         (expected, e_handle, e.size),
                         (actual, a_handle, a.size),
-                        rules,
                         size_limit,
                     )?
                 }
@@ -1235,16 +1140,6 @@ pub(crate) mod tests {
         assert_eq!(found, expected);
     }
 
-    /// The status of `path` holding `rebuilt` in one image and `published` in the other.
-    fn status(path: &str, rebuilt: &[u8], published: &[u8], rules: Rules) -> Status {
-        let reports = compare_files(
-            &files(&[(path, rebuilt.to_vec())]),
-            &files(&[(path, published.to_vec())]),
-            rules,
-        );
-        reports.first().map_or(Status::Match, |r| r.status)
-    }
-
     #[test]
     fn boot_rules() {
         use Status::{ExpectedDifference, Mismatch};
@@ -1291,49 +1186,6 @@ pub(crate) mod tests {
                 ("/EFI/BOOT/extra.auth", Mismatch),
             ],
         );
-    }
-
-    #[test]
-    fn root_rules() {
-        let sign = crate::kmod::tests::sign;
-        let role = "/aarch64-bottlerocket-linux-gnu/sys-root/usr/share/updog/root.json";
-        for (path, rebuilt, published, expected) in [
-            (
-                "/m/xfs.ko",
-                sign(b"module", b"key1"),
-                sign(b"module", b"key2"),
-                Status::ExpectedDifference,
-            ),
-            (
-                "/m/xfs.ko",
-                sign(b"module", b"key1"),
-                sign(b"modulf", b"key2"),
-                Status::Mismatch,
-            ),
-            (
-                "/m/xfs.ko",
-                b"module".to_vec(),
-                sign(b"module", b"key2"),
-                Status::Mismatch,
-            ),
-            // Certificates are only signing artifacts in the boot partitions.
-            (
-                "/etc/ca.crt",
-                b"ca1".to_vec(),
-                b"ca2".to_vec(),
-                Status::Mismatch,
-            ),
-            // The root role is skipped, whatever it holds.
-            (
-                role,
-                b"aaaa".to_vec(),
-                b"not json".to_vec(),
-                Status::ExpectedDifference,
-            ),
-        ] {
-            let found = status(path, &rebuilt, &published, Rules::Root);
-            assert_eq!(found, expected, "{path}: {published:?}");
-        }
     }
 
     const SBOM: &str =
@@ -1599,11 +1451,15 @@ pub(crate) mod tests {
 
     #[test]
     fn compare_trees_rules() {
+        let role = "/aarch64-bottlerocket-linux-gnu/sys-root/usr/share/updog/root.json";
         let (e, a): (&[u8], &[u8]) = (b"{\"spdx\":1}", b"{\"spdx\":22}");
         let expected = mem_tree(&[
             ("/a", b"one", 3),
             ("/b", b"two", 3),
             ("/big", b"", 0),
+            ("/etc/ca.crt", b"ca1", 3),
+            ("/m/xfs.ko", b"module~key1", 11),
+            (role, b"aaaa", 4),
             (SBOM, e, e.len() as u64),
         ]);
         let actual = mem_tree(&[
@@ -1611,10 +1467,15 @@ pub(crate) mod tests {
             ("/b", b"tw0", 3),
             // The size alone fails it.
             ("/big", b"", 1 << 40),
-            // Read from a tree, as ROOT-A is.
+            // Certificates are only signing artifacts in the boot partitions.
+            ("/etc/ca.crt", b"ca2", 3),
+            // Kernel modules must match like any other file.
+            ("/m/xfs.ko", b"module~key2", 11),
+            // The root role is skipped, whatever it holds.
+            (role, b"not json", 8),
             (SBOM, a, a.len() as u64),
         ]);
-        let reports = compare_trees(&expected, &actual, Rules::Root, 1 << 20).unwrap();
+        let reports = compare_trees(&expected, &actual, 1 << 20).unwrap();
         let big = reports.iter().find(|r| r.path == "/big").unwrap();
         assert!(big.detail.contains("not read"), "{big:?}");
         assert_statuses(
@@ -1622,6 +1483,9 @@ pub(crate) mod tests {
             &[
                 ("/b", Status::Mismatch),
                 ("/big", Status::Mismatch),
+                ("/etc/ca.crt", Status::Mismatch),
+                ("/m/xfs.ko", Status::Mismatch),
+                (role, Status::ExpectedDifference),
                 (SBOM, Status::ExpectedDifference),
             ],
         );

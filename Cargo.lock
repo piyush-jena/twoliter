@@ -3937,12 +3937,10 @@ dependencies = [
  "crc",
  "ext4-view",
  "fatfs",
- "flate2",
  "gptman",
  "hex",
  "hmac",
  "libc",
- "lzma-rs",
  "object 0.39.1",
  "pcrsys",
  "regex",
@@ -3952,7 +3950,6 @@ dependencies = [
  "snafu 0.8.9",
  "tempfile",
  "tokio",
- "zstd",
 ]
 
 [[package]]

@@ -9,7 +9,6 @@ mod error;
 mod eventlog;
 mod ext4;
 mod fsfiles;
-mod kmod;
 mod pe;
 mod summary;
 mod verity;

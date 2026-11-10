@@ -16,11 +16,9 @@ coldsnap = { workspace = true, features = ["aws-sdk-rust-rustls"] }
 crc.workspace = true
 ext4-view.workspace = true
 fatfs.workspace = true
-flate2.workspace = true
 gptman.workspace = true
 hex.workspace = true
 hmac.workspace = true
-lzma-rs.workspace = true
 object.workspace = true
 pcrsys.workspace = true
 regex.workspace = true
@@ -30,7 +28,6 @@ sha2_0_11.workspace = true
 snafu.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "time"] }
-zstd.workspace = true
 
 [dev-dependencies]
 libc.workspace = true
