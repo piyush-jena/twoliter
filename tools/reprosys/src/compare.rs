@@ -153,10 +153,11 @@ const NOTES: &[&str] = &[
     "PRIVATE must match byte for byte. When it differs, its files are compared to explain the \
      difference, but it fails verification whatever they show. Images whose source pins a \
      twoliter older than the first release whose ext4 partitions do not depend on the build \
-     host have two known causes of such a difference: a build host with SELinux enforcing, \
+     host have two known causes of such a difference: a build host with SELinux enabled, \
      whose labels on the source files (security.selinux) mke2fs copies into PRIVATE, and an \
      aarch64 build host, whose unsigned char mke2fs records in the directory hash flags of the \
-     superblocks. Verify such images from an x86_64 host without SELinux enforcing.",
+     superblocks. Both also change an ext4 DATA partition. Verify such images from an x86_64 \
+     host with SELinux disabled.",
 ];
 
 struct Images {

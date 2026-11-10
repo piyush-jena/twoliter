@@ -23,7 +23,7 @@ const MIN_REPRODUCIBLE_TWOLITER: Version = Version::new(0, 26, 0);
 /// the next minor release carries that change.
 const HOST_INDEPENDENT_EXT4_TWOLITER: Version = Version::new(0, 28, 0);
 
-/// Where the kernel reports whether SELinux is enforcing.
+/// Present when SELinux is enabled, in enforcing or permissive mode; both label new files.
 const SELINUX_ENFORCE: &str = "/sys/fs/selinux/enforce";
 
 /// erofs-utils commands reprosys uses to compare ROOT-A.
@@ -191,18 +191,15 @@ impl VerifyAmi {
             cleanup.push(source_dir.clone());
         }
         if let Some(pinned) = check_twoliter_version(&source_dir).await? {
-            let causes = private_host_differences(
-                &pinned,
-                selinux_enforcing().await,
-                std::env::consts::ARCH,
-            );
+            let causes =
+                private_host_differences(&pinned, selinux_enabled(), std::env::consts::ARCH);
             if !causes.is_empty() {
                 warn!(
-                    "\n\n!!! PRIVATE is expected to fail verification on this host. The source \
-                     pins twoliter {pinned}, and twoliter releases before \
-                     {HOST_INDEPENDENT_EXT4_TWOLITER} build ext4 partitions that depend on the \
-                     build host. Here, {}. Verify from an x86_64 host without SELinux enforcing. \
-                     !!!\n",
+                    "\n\n!!! PRIVATE, and an ext4 DATA partition if the variant has one, are \
+                     expected to fail verification on this host. The source pins twoliter \
+                     {pinned}, and twoliter releases before {HOST_INDEPENDENT_EXT4_TWOLITER} build \
+                     ext4 partitions that depend on the build host. Here, {}. Verify from an \
+                     x86_64 host with SELinux disabled. !!!\n",
                     causes.join(", and ")
                 );
             }
@@ -479,33 +476,32 @@ async fn check_twoliter_version(dir: &Path) -> Result<Option<Version>> {
 }
 
 /// Whether this host enforces SELinux.
-async fn selinux_enforcing() -> bool {
-    fs::read_to_string(SELINUX_ENFORCE)
-        .await
-        .is_ok_and(|enforce| enforce.trim() == "1")
+fn selinux_enabled() -> bool {
+    Path::new(SELINUX_ENFORCE).exists()
 }
 
-/// Why a rebuild on a host with `selinux_enforcing` and `arch` makes a PRIVATE that differs from
-/// one built on an x86_64 host without SELinux enforcing, when the source pins twoliter `pinned`.
+/// Why a rebuild on a host with `selinux_enabled` and `arch` makes ext4 partitions that differ
+/// from those built on an x86_64 host with SELinux disabled, when the source pins twoliter
+/// `pinned`. A pre-release of the first host-independent release counts as that release.
 fn private_host_differences(
     pinned: &Version,
-    selinux_enforcing: bool,
+    selinux_enabled: bool,
     arch: &str,
 ) -> Vec<&'static str> {
-    if *pinned >= HOST_INDEPENDENT_EXT4_TWOLITER {
+    if Version::new(pinned.major, pinned.minor, pinned.patch) >= HOST_INDEPENDENT_EXT4_TWOLITER {
         return Vec::new();
     }
     let mut causes = Vec::new();
-    if selinux_enforcing {
+    if selinux_enabled {
         causes.push(
-            "SELinux is enforcing, so mke2fs copies the SELinux labels of the rebuilt files into \
-             PRIVATE",
+            "SELinux is enabled, so mke2fs copies the SELinux labels of the rebuilt files into \
+             PRIVATE and any ext4 DATA partition",
         );
     }
     if arch == "aarch64" {
         causes.push(
-            "the host is aarch64, whose char is unsigned, so mke2fs flags PRIVATE's directory \
-             hashes as unsigned",
+            "the host is aarch64, whose char is unsigned, so mke2fs flags the directory hashes of \
+             PRIVATE and any ext4 DATA partition as unsigned",
         );
     }
     causes
@@ -704,16 +700,17 @@ mod tests {
     fn warns_of_hosts_that_change_private() {
         let old = Version::new(0, 27, 0);
         let rc = Version::parse("0.28.0-rc.1").unwrap();
-        for (pinned, selinux_enforcing, arch, expected) in [
+        for (pinned, selinux_enabled, arch, expected) in [
             (&old, false, "x86_64", &[][..]),
             (&old, true, "x86_64", &["SELinux"]),
             (&old, false, "aarch64", &["aarch64"]),
-            (&rc, true, "aarch64", &["SELinux", "aarch64"]),
+            (&old, true, "aarch64", &["SELinux", "aarch64"]),
+            (&rc, true, "aarch64", &[]),
             (&HOST_INDEPENDENT_EXT4_TWOLITER, true, "aarch64", &[]),
             (&Version::new(0, 29, 1), true, "aarch64", &[]),
         ] {
-            let causes = private_host_differences(pinned, selinux_enforcing, arch);
-            let case = format!("{pinned} {selinux_enforcing} {arch}: {causes:?}");
+            let causes = private_host_differences(pinned, selinux_enabled, arch);
+            let case = format!("{pinned} {selinux_enabled} {arch}: {causes:?}");
             assert_eq!(causes.len(), expected.len(), "{case}");
             for (cause, about) in causes.iter().zip(expected) {
                 assert!(cause.contains(about), "{case}");

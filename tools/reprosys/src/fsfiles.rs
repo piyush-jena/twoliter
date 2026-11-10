@@ -38,6 +38,9 @@ pub fn is_uki_path(path: &[u8]) -> bool {
         .any(|u| path.eq_ignore_ascii_case(u.as_bytes()))
 }
 
+/// The TUF root role, which the rebuild takes from `twoliter verify ami --root-role`.
+const TUF_ROOT_ROLE: &[u8] = b"/usr/share/updog/root.json";
+
 /// The SBOMs in ROOT-A, which sbomtool cannot reproduce yet.
 const SBOMS: &[&[u8]] = &[
     b"/usr/share/bottlerocket/spdx-sbom.json",
@@ -818,10 +821,18 @@ fn compare_contents<E: FileTree, A: FileTree>(
     } else if let Some(reason) = expected_root_difference(path) {
         report(path, Status::ExpectedDifference, reason)
     } else {
+        // A wrong root role is the likely cause, and the user's to fix.
+        let hint = if path.ends_with(TUF_ROOT_ROLE) {
+            "; the rebuild embeds the root role that twoliter verify ami --root-role names (by \
+             default the source's highest-numbered <N>.root.json), so pass the one the AMI was \
+             built with"
+        } else {
+            ""
+        };
         report(
             path,
             Status::Mismatch,
-            format!("contents differ ({expected} vs {actual})"),
+            format!("contents differ ({expected} vs {actual}){hint}"),
         )
     })
 }
@@ -1202,6 +1213,8 @@ pub(crate) mod tests {
         let reports = compare_trees(&expected, &actual, 1 << 20).unwrap();
         let big = reports.iter().find(|r| r.path == "/big").unwrap();
         assert!(big.detail.contains("not read"), "{big:?}");
+        let root_role = reports.iter().find(|r| r.path == role).unwrap();
+        assert!(root_role.detail.contains("--root-role"), "{root_role:?}");
         assert_statuses(
             reports,
             &[
