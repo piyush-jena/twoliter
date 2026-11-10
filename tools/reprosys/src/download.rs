@@ -28,23 +28,21 @@ pub struct Downloader {
     ec2: Ec2Client,
     ebs: EbsClient,
     region: String,
-    keep_copies: bool,
     /// Snapshot copies not yet deleted.
     copies: Mutex<Vec<String>>,
 }
 
 impl Downloader {
-    pub fn new(ec2: Ec2Client, ebs: EbsClient, region: String, keep_copies: bool) -> Self {
+    pub fn new(ec2: Ec2Client, ebs: EbsClient, region: String) -> Self {
         Self {
             ec2,
             ebs,
             region,
-            keep_copies,
             copies: Mutex::new(Vec::new()),
         }
     }
 
-    /// Delete the snapshot copies of an interrupted download, unless they are kept.
+    /// Delete the snapshot copies of an interrupted download.
     pub async fn cleanup(&self) {
         let copies = std::mem::take(&mut *self.copies.lock().expect("lock poisoned"));
         for copy in copies {
@@ -52,21 +50,12 @@ impl Downloader {
         }
     }
 
-    /// Finish handling a copy, applying the same retention policy on every exit path.
+    /// Delete a snapshot copy, reporting failures so it can be deleted manually.
     async fn cleanup_copy(&self, copy: &str) {
         self.copies
             .lock()
             .expect("lock poisoned")
             .retain(|c| c != copy);
-        if self.keep_copies {
-            eprintln!("Keeping snapshot copy {copy}");
-        } else {
-            self.discard_copy(copy).await;
-        }
-    }
-
-    /// Delete a snapshot copy, reporting failures so it can be deleted manually.
-    async fn discard_copy(&self, copy: &str) {
         if let Err(e) = self.ec2.delete_snapshot().snapshot_id(copy).send().await {
             eprintln!(
                 "Warning: failed to delete snapshot copy {copy}; delete it manually: {}",

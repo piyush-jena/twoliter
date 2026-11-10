@@ -402,24 +402,16 @@ async fn prepare_source(dir: &Path, repo: Option<&str>, info: &AmiInfo) -> Resul
     Ok(())
 }
 
-/// Read the release version from Twoliter.toml, or Release.toml in older checkouts.
+/// Read the release version from Twoliter.toml, which every tag from v1.30.0 has. Older
+/// checkouts predate twoliter 0.26, the first release whose builds are reproducible.
 async fn read_release_version(dir: &Path) -> Result<String> {
-    for (file, key) in [
-        ("Twoliter.toml", "release-version"),
-        ("Release.toml", "version"),
-    ] {
-        let path = dir.join(file);
-        if !path.exists() {
-            continue;
-        }
-        if let Some(version) = read_toml(&path).await?.get(key).and_then(|v| v.as_str()) {
-            return Ok(version.to_string());
-        }
-    }
-    bail!(
-        "No release version found in Twoliter.toml or Release.toml in '{}'",
-        dir.display()
-    )
+    let path = dir.join("Twoliter.toml");
+    read_toml(&path)
+        .await?
+        .get("release-version")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .with_context(|| format!("No release-version found in '{}'", path.display()))
 }
 
 /// Warn when the checkout pins a twoliter that predates reproducible builds.

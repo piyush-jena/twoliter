@@ -28,8 +28,6 @@ pub struct RegionReport {
     pub name: String,
     pub policy: Policy,
     pub status: Status,
-    /// Whether a mismatch in this region fails verification.
-    pub fatal: bool,
     pub offset: u64,
     pub len: u64,
     pub expected_sha256: Option<String>,
@@ -46,7 +44,6 @@ impl RegionReport {
             name: name.to_string(),
             policy,
             status: Status::Mismatch,
-            fatal: true,
             offset,
             len,
             expected_sha256: None,
@@ -56,8 +53,9 @@ impl RegionReport {
         }
     }
 
+    /// Whether this region fails verification, as every mismatch does.
     pub fn failed(&self) -> bool {
-        self.fatal && self.status == Status::Mismatch
+        self.status == Status::Mismatch
     }
 
     /// A region whose bytes differ but whose files could not be read.
@@ -147,8 +145,7 @@ const NOTES: &[&str] = &[
      differ and are not compared: rebuilds generate their own root role because the release keys \
      are not available, and sbomtool output is not reproducible.",
     "HASH-A is formatted with a random salt, so it never matches the rebuilt one byte for byte, \
-     and is not compared with it. Instead, unless HASH-A, ROOT-A and the kernel command line \
-     are all identical to the rebuilt ones, the dm-verity hash tree of the published ROOT-A is \
+     and is not compared with it. Instead, the dm-verity hash tree of the published ROOT-A is \
      computed with the salt of the published kernel command line: its root must be the root \
      hash the image boots with, and HASH-A must hold every level of it where the table says. \
      The verity superblock in HASH-A, which the kernel does not read, is not compared. Only \
@@ -264,7 +261,6 @@ fn assess_region(
     };
     RegionReport {
         status,
-        fatal: policy != Policy::SaltDependent,
         expected_sha256: expected.map(RangeHash::hex),
         actual_sha256: Some(actual.hex()),
         ..RegionReport::mismatch(name, policy, offset, len, detail.to_string())
@@ -399,27 +395,19 @@ pub fn compare_os(expected: &Path, actual: &Path) -> Result<ImageReport> {
             }
             result
         };
-        // When HASH-A, ROOT-A and the table are identical to the rebuilt ones, they are the
-        // rebuilt image's, whose build verified them; otherwise the published ones must agree.
-        let identical = boot_config.rebuilt == boot_config.published
-            && report
-                .regions
-                .iter()
-                .filter(|r| r.name == "ROOT-A" || r.name == "HASH-A")
-                .all(|r| r.status == Status::Match);
+        // The published HASH-A must hold the hash tree of the published ROOT-A, even when it
+        // matches the rebuilt one.
         if let (Ok(checked), Some(root_a), Some(r)) = (
             &result,
             root_a,
             report.regions.iter_mut().find(|r| r.name == "HASH-A"),
         ) {
-            if !identical {
-                let hash = Device {
-                    file: &images.actual,
-                    offset: hash_a.offset,
-                    len: hash_a.len,
-                };
-                verify_hash_a(&checked.table, root_a, hash, r);
-            }
+            let hash = Device {
+                file: &images.actual,
+                offset: hash_a.offset,
+                len: hash_a.len,
+            };
+            verify_hash_a(&checked.table, root_a, hash, r);
         }
         report.regions.push(boot_config_region(
             layout.find(boot_source.partition()),
@@ -453,7 +441,6 @@ fn compare_root(images: &Images, p: &Partition, r: &mut RegionReport) -> Result<
         );
         return Ok(());
     }
-    erofs::require_tools()?;
     // Extract next to the published image, where there is room.
     let work_dir = images
         .actual_path
@@ -1013,7 +1000,6 @@ fn verify_hash_a(table: &VerityTable, root: Device<'_>, hash: Device<'_>, r: &mu
         Err(e) => {
             eventlog::error(&e);
             r.status = Status::Mismatch;
-            r.fatal = true;
             r.detail = format!(
                 "does not hold the hash tree of the published ROOT-A with the root hash and salt \
                  of the published kernel command line: {e}"
@@ -1775,6 +1761,22 @@ mod rootfs_tests {
         // A root hash that is not that of ROOT-A fails, though grub.cfg may differ in it.
         let wrong = image("wrong-root", &"b".repeat(64), "11", &salted_hash);
         let report = compare(&rebuilt, &wrong, None, None).unwrap();
+        assert_eq!(report.verdict, Verdict::Failed);
+        assert!(super::tests::region(&report.os, "HASH-A").failed());
+
+        // A HASH-A identical to the rebuilt one is checked too.
+        let report = compare(&rebuilt, &rebuilt, None, None).unwrap();
+        assert_eq!(report.verdict, Verdict::Verified, "{report:#?}");
+        let r = super::tests::region(&report.os, "HASH-A");
+        assert_eq!(r.status, Status::Match, "{r:#?}");
+        assert!(
+            r.detail.starts_with("identical; it holds the hash tree"),
+            "{r:#?}"
+        );
+        let mut stale_hash = rebuilt_hash.clone();
+        stale_hash[4096 + 7] ^= 1;
+        let stale = image("stale", &rebuilt_root, "00", &stale_hash);
+        let report = compare(&stale, &stale, None, None).unwrap();
         assert_eq!(report.verdict, Verdict::Failed);
         assert!(super::tests::region(&report.os, "HASH-A").failed());
     }

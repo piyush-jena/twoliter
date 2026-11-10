@@ -24,7 +24,6 @@ use tempfile::TempDir;
 
 const SUPERBLOCK_OFFSET: u64 = 1024;
 const MAGIC: u32 = 0xe0f5_e1e2;
-const TOOLS: &[&str] = &["fsck.erofs", "dump.erofs"];
 const INCOMPAT_METABOX: u32 = 0x100;
 /// Inode numbers (NIDs) count 32-byte slots from the start of the metadata area.
 const INODE_SLOT_BITS: u32 = 5;
@@ -42,25 +41,6 @@ pub fn is_erofs(file: &File, offset: u64) -> Result<bool> {
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
         Err(e) => Err(e).whatever_context("failed to read filesystem superblock"),
     }
-}
-
-/// Fail unless the erofs-utils commands used to read erofs filesystems are installed.
-pub fn require_tools() -> Result<()> {
-    for tool in TOOLS {
-        let found = Command::new(tool)
-            .arg("-V")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok();
-        ensure_whatever!(
-            found,
-            "ROOT-A is an erofs filesystem, which is compared using erofs-utils, but '{tool}' was \
-             not found in PATH. Install erofs-utils (for example `dnf install erofs-utils` or \
-             `apt install erofs-utils`) and run again."
-        );
-    }
-    Ok(())
 }
 
 /// The total size of the regular files in the erofs filesystem at `offset`.

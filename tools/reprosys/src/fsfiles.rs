@@ -594,9 +594,9 @@ fn compare_file(
     )
 }
 
-/// HMAC-SHA512 of `data` with `key`, as `openssl sha512 -hmac` computes it.
-fn hmac_sha512(key: &[u8], data: &[u8]) -> [u8; 64] {
-    let mut mac = Hmac::<Sha512>::new_from_slice(key).expect("HMAC takes keys of any length");
+/// HMAC-SHA512 of `data` with `HMAC_KEY`, as `openssl sha512 -hmac` computes it.
+fn hmac_sha512(data: &[u8]) -> [u8; 64] {
+    let mut mac = Hmac::<Sha512>::new_from_slice(HMAC_KEY).expect("HMAC takes keys of any length");
     mac.update(data);
     mac.finalize().into_bytes().into()
 }
@@ -641,7 +641,7 @@ fn compare_hmac(path: &[u8], expected: &[u8], actual: &[u8], published: &Files) 
             format!("the published image has no single {target_path} to check it against"),
         );
     };
-    let computed = hex::encode(hmac_sha512(HMAC_KEY, data));
+    let computed = hex::encode(hmac_sha512(data));
     if digest.eq_ignore_ascii_case(&computed) && expected == actual {
         report(path, Status::Match, "identical")
     } else if digest.eq_ignore_ascii_case(&computed) {
@@ -1307,14 +1307,14 @@ pub(crate) mod tests {
 
     /// An HMAC file as rpm2img writes it for `target`, holding `data`.
     pub fn hmac_file(target: &str, data: &[u8]) -> Vec<u8> {
-        format!("{}  {target}\n", hex::encode(hmac_sha512(HMAC_KEY, data))).into_bytes()
+        format!("{}  {target}\n", hex::encode(hmac_sha512(data))).into_bytes()
     }
 
     #[test]
     fn computes_hmac_sha512() {
         // `printf vmlinuz | openssl sha512 -hmac FIPS-FTW-RHT2009`
         assert_eq!(
-            hex::encode(hmac_sha512(HMAC_KEY, b"vmlinuz")),
+            hex::encode(hmac_sha512(b"vmlinuz")),
             "a3266dc72b3c02ef60f8d4a5ddb57e1a9e13c7a56bf648039a9aead136f1eb22\
              cfad56ca69fefd5f9949344829a37d53c6533c380bcfd1b6896c0ce34e70f73d"
         );

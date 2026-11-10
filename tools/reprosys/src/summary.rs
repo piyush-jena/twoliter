@@ -13,11 +13,10 @@ const WRAP_WIDTH: usize = 100;
 impl RegionReport {
     /// The summary's marker for this region, and its rank: failures are listed first.
     fn marker(&self) -> (&'static str, u8) {
-        match (self.status, self.fatal) {
-            (Status::Match, _) => ("ok", 3),
-            (Status::ExpectedDifference, _) => ("note", 2),
-            (Status::Mismatch, true) => ("FAIL", 0),
-            (Status::Mismatch, false) => ("warn", 1),
+        match self.status {
+            Status::Match => ("ok", 2),
+            Status::ExpectedDifference => ("note", 1),
+            Status::Mismatch => ("FAIL", 0),
         }
     }
 }
@@ -106,8 +105,6 @@ pub fn summary(report: &Report, info: &AmiInfo, verbose: bool) -> String {
         .collect();
     if report.verdict == Verdict::Verified {
         out.push("Result: VERIFIED".to_string());
-    } else if failed.is_empty() {
-        out.push("Result: FAILED".to_string());
     } else {
         out.push(format!(
             "Result: FAILED ({} differ{} from the rebuilt image)",
@@ -182,7 +179,6 @@ mod tests {
             name: name.to_string(),
             policy: Policy::MustMatch,
             status,
-            fatal: true,
             offset: 0,
             len: 0,
             expected_sha256: None,

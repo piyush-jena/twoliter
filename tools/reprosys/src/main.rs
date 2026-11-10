@@ -66,10 +66,6 @@ enum Command {
         /// Directory to write root.img and data.img into
         #[arg(long)]
         out_dir: PathBuf,
-
-        /// Keep snapshot copies made for snapshots owned by another account
-        #[arg(long)]
-        keep_copies: bool,
     },
 
     /// Compare a rebuilt image against a downloaded one
@@ -234,15 +230,10 @@ async fn run(args: Args) -> Result<ExitCode> {
             let clients = Clients::new(&aws).await?;
             print_json(&clients.resolve(&aws.ami_id).await?)?;
         }
-        Command::Download {
-            aws,
-            out_dir,
-            keep_copies,
-        } => {
+        Command::Download { aws, out_dir } => {
             let clients = Clients::new(&aws).await?;
             let info = clients.resolve(&aws.ami_id).await?;
-            let downloader =
-                download::Downloader::new(clients.ec2, clients.ebs, clients.region, keep_copies);
+            let downloader = download::Downloader::new(clients.ec2, clients.ebs, clients.region);
             // Delete snapshot copies when interrupted.
             let mut sigint =
                 signal(SignalKind::interrupt()).whatever_context("failed to handle SIGINT")?;
