@@ -17,7 +17,7 @@ use crate::predict::{
     extend_pcr_data, extend_pcr_separator, extend_pcr_string, PcrContext, PcrDigests, PcrIndex,
     PcrRecord, PCR_INIT_VAL,
 };
-use snafu::{FromString, Whatever};
+use snafu::FromString;
 
 const ACTION_STRING_1: &str = "Exit Boot Services Invocation";
 const ACTION_STRING_2: &str = "Exit Boot Services Returned with Success";
@@ -45,7 +45,8 @@ fn with_priority(
     mut attrs: GptPrio,
     (priority, tries, successful): (u8, u8, bool),
 ) -> Result<GptPrio> {
-    let nibble = |v| Nibble::try_new(v).map_err(|e| Whatever::without_source(e.to_string()));
+    let nibble =
+        |v| Nibble::try_new(v).map_err(|e| crate::error::Error::without_source(e.to_string()));
     attrs.set_priority(nibble(priority)?);
     attrs.set_tries_left(nibble(tries)?);
     attrs.set_successful(successful);

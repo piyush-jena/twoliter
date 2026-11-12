@@ -2,7 +2,7 @@
 
 use crate::error::Result;
 use hex_literal::hex;
-use snafu::{ensure_whatever, FromString, Whatever};
+use snafu::{ensure_whatever, FromString};
 use uuid::Uuid;
 
 /// EFI Signature List header size: 16 (type GUID) + 4 (list size) + 4 (header size) + 4 (sig size).
@@ -107,10 +107,10 @@ pub fn generate_efi_variable_data(guid: &Uuid, name: &str, data: &[u8]) -> Vec<u
 pub fn generate_x509_esl(cert: &[u8]) -> Result<Vec<u8>> {
     let list_size: u32 = (ESL_HEADER_SIZE + SIGNATURE_OWNER_SIZE + cert.len())
         .try_into()
-        .map_err(|_| Whatever::without_source("certificate too large for ESL".into()))?;
+        .map_err(|_| crate::error::Error::without_source("certificate too large for ESL".into()))?;
     let sig_size: u32 = (SIGNATURE_OWNER_SIZE + cert.len())
         .try_into()
-        .map_err(|_| Whatever::without_source("certificate too large for ESL".into()))?;
+        .map_err(|_| crate::error::Error::without_source("certificate too large for ESL".into()))?;
 
     let mut result = Vec::new();
     // EFI_CERT_TYPE_X509_GUID

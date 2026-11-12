@@ -8,10 +8,20 @@ A TPM Platform Configuration Register (PCR) prediction tool for Bottlerocket.
 
 ## Usage
 
+pcrsys is also available as `twoliter pcr`, with the same subcommands and arguments, such as `twoliter pcr disk ...` and `twoliter pcr ami ...`.
+
 ### From a local disk image
 
 ```bash
 pcrsys disk --image /path/to/disk.img --efi-vars /path/to/efi-vars.json [--platform aws|vmware|metal]
+```
+
+`--platform` defaults to `aws`, so pass `vmware` or `metal` for images built for those platforms.
+
+Through Twoliter, `--image` may also be an lz4-compressed image, such as the `.img.lz4` files from a Bottlerocket build, which Twoliter decompresses first:
+
+```bash
+twoliter pcr disk --image /path/to/disk.img.lz4 --efi-vars /path/to/efi-vars.json
 ```
 
 ### From an AWS AMI

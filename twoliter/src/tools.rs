@@ -4,7 +4,7 @@ use filetime::{set_file_handle_times, set_file_mtime, FileTime};
 use flate2::read::ZlibDecoder;
 use futures::future::try_join_all;
 use std::fs::OpenOptions;
-use std::io::{Read, Write as _};
+use std::io::{BufWriter, Read, Write as _};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use tar::Archive;
@@ -108,15 +108,16 @@ async fn write_bin(
             .context(format!("Unable to create file '{}'", path.display()))?;
 
         {
-            let mut writer = std::io::BufWriter::new(&mut f);
+            // Flush explicitly, since dropping the `BufWriter` would ignore any error.
+            let mut writer = BufWriter::new(&mut f);
             std::io::copy(&mut data, &mut writer).context(format!(
                 "Failed to decompress `{name}` to `{}`",
                 path.display()
             ))?;
+            writer
+                .flush()
+                .context(format!("Unable to finalize '{}'", path.display()))?;
         }
-
-        f.flush()
-            .context(format!("Unable to finalize '{}'", path.display()))?;
 
         set_file_handle_times(&f, None, Some(mtime))
             .context(format!("Unable to set mtime for '{}'", path.display()))?;

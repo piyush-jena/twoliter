@@ -1,8 +1,11 @@
 //! EFI variable types and parsing.
 
 use super::esl::{EFI_GLOBAL_VARIABLE_GUID, EFI_IMAGE_SECURITY_DATABASE_GUID};
+use crate::error::Result;
 use serde::Deserialize;
-use snafu::{ensure_whatever, OptionExt, Whatever};
+use snafu::{ensure_whatever, OptionExt, ResultExt};
+use std::fs;
+use std::path::Path;
 
 /// Raw EFI variables before validation.
 #[derive(Debug, Deserialize)]
@@ -24,8 +27,17 @@ pub struct EfiVars {
     pub variables: Vec<EfiVar>,
 }
 
+impl EfiVars {
+    /// Read the Secure Boot variables from an efi-vars.json file.
+    pub fn load(path: &Path) -> Result<Self> {
+        let json = fs::read_to_string(path)
+            .whatever_context(format!("failed to read efi-vars: {}", path.display()))?;
+        serde_json::from_str(&json).whatever_context("failed to parse efi-vars.json")
+    }
+}
+
 impl TryFrom<RawEfiVars> for EfiVars {
-    type Error = Whatever;
+    type Error = crate::error::Error;
 
     fn try_from(raw: RawEfiVars) -> std::result::Result<Self, Self::Error> {
         let global = EFI_GLOBAL_VARIABLE_GUID.to_string();
