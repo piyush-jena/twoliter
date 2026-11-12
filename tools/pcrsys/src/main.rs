@@ -3,30 +3,17 @@
 //! Predicts TPM Platform Configuration Register (PCR) values based on
 //! boot components, EFI variables, and GPT partition tables.
 
-mod aws;
-mod diskfs;
-mod efi;
-mod error;
-mod gpt;
-mod image;
-mod pcrs;
-mod pe;
-mod platform;
-mod predict;
-
-use aws_config::profile::ProfileFileCredentialsProvider;
-use aws_types::region::Region;
-use aws_types::SdkConfig;
 use clap::{Parser, Subcommand};
-use coldsnap::SnapshotDownloader;
 use snafu::prelude::*;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use crate::error::Result;
-use crate::image::DiskImage;
-use crate::platform::Platform;
-use crate::predict::PcrPredictions;
+use pcrsys::aws;
+use pcrsys::efi::EfiVars;
+use pcrsys::error::Result;
+use pcrsys::image::DiskImage;
+use pcrsys::platform::Platform;
+use pcrsys::predict::PcrPredictions;
 
 /// Command-line arguments for pcrsys.
 #[derive(Parser)]
@@ -90,86 +77,25 @@ async fn main() -> Result<()> {
 }
 
 /// Run PCR prediction from a local disk image file.
-fn run_disk(image: &PathBuf, efi_vars_path: &PathBuf, platform: Platform) -> Result<()> {
-    let efi_vars_json = fs::read_to_string(efi_vars_path).whatever_context(format!(
-        "failed to read efi-vars: {}",
-        efi_vars_path.display()
-    ))?;
+fn run_disk(image: &Path, efi_vars_path: &Path, platform: Platform) -> Result<()> {
+    let efi_vars = EfiVars::load(efi_vars_path)?;
 
     let mut disk = fs::File::open(image)
         .whatever_context(format!("failed to open disk image: {}", image.display()))?;
 
-    let efi_vars: efi::EfiVars =
-        serde_json::from_str(&efi_vars_json).whatever_context("failed to parse efi-vars.json")?;
-
-    let predictions = predict_pcrs(&efi_vars, &mut disk, platform)?;
-    let json = serde_json::to_string_pretty(&predictions)
-        .whatever_context("failed to serialize predictions")?;
-    println!("{json}");
-
-    Ok(())
+    print_predictions(&DiskImage::parse(&mut disk)?.predict(&efi_vars, platform)?)
 }
 
 /// Run PCR prediction from an AWS AMI by downloading its snapshot.
 async fn run_ami(ami_id: &str, region: Option<&String>, profile: Option<&String>) -> Result<()> {
-    let config = build_client_config(region, profile).await;
+    print_predictions(&aws::ami::predict(ami_id, region, profile).await?)
+}
 
-    let ec2_client = aws_sdk_ec2::Client::new(&config);
-    let ebs_client = aws_sdk_ebs::Client::new(&config);
-
-    let efi_vars = aws::ami::get_uefi_data(&ec2_client, ami_id).await?;
-
-    let snapshot_id = aws::ami::get_root_snapshot_id(&ec2_client, ami_id).await?;
-
-    let temp_file =
-        tempfile::NamedTempFile::new().whatever_context("failed to create temp file")?;
-
-    let downloader = SnapshotDownloader::new(ebs_client);
-    downloader
-        .download_to_file(&snapshot_id, temp_file.path(), None, None, None)
-        .await
-        .whatever_context("failed to download snapshot")?;
-
-    let mut disk =
-        fs::File::open(temp_file.path()).whatever_context("failed to open downloaded snapshot")?;
-
-    let predictions = predict_pcrs(&efi_vars, &mut disk, Platform::Aws)?;
-    let json = serde_json::to_string_pretty(&predictions)
+/// Print PCR predictions to stdout as JSON.
+fn print_predictions(predictions: &PcrPredictions) -> Result<()> {
+    let json = serde_json::to_string_pretty(predictions)
         .whatever_context("failed to serialize predictions")?;
     println!("{json}");
 
     Ok(())
-}
-
-/// Build AWS SDK config, handling region and profile options like coldsnap.
-async fn build_client_config(region: Option<&String>, profile: Option<&String>) -> SdkConfig {
-    let config = match (region, profile) {
-        (Some(r), _) => aws_config::from_env().region(Region::new(r.clone())),
-        (None, Some(p)) => aws_config::from_env().region(
-            aws_config::profile::ProfileFileRegionProvider::builder()
-                .profile_name(p)
-                .build(),
-        ),
-        (None, None) => aws_config::from_env(),
-    };
-
-    let config = match profile {
-        Some(p) => config.credentials_provider(
-            ProfileFileCredentialsProvider::builder()
-                .profile_name(p)
-                .build(),
-        ),
-        None => config,
-    };
-
-    config.load().await
-}
-
-/// Run PCR prediction using EFI variables and a disk image file.
-fn predict_pcrs(
-    efi_vars: &efi::EfiVars,
-    disk: &mut fs::File,
-    platform: Platform,
-) -> Result<PcrPredictions> {
-    DiskImage::parse(disk)?.predict(efi_vars, platform)
 }
