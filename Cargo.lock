@@ -3344,6 +3344,7 @@ dependencies = [
  "bootconfig",
  "clap",
  "coldsnap",
+ "error-utils",
  "ext4-view",
  "fatfs",
  "flate2",

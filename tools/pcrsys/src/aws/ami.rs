@@ -15,6 +15,7 @@ pub async fn get_uefi_data(ec2_client: &Client, ami_id: &str) -> Result<EfiVars>
         .attribute(ImageAttributeName::UefiData)
         .send()
         .await
+        .map_err(|e| error_utils::format_aws_sdk_error(&e))
         .whatever_context("failed to describe image attribute")?;
 
     let uefi_b64 = response
@@ -32,6 +33,7 @@ pub async fn get_root_snapshot_id(ec2_client: &Client, ami_id: &str) -> Result<S
         .image_ids(ami_id)
         .send()
         .await
+        .map_err(|e| error_utils::format_aws_sdk_error(&e))
         .whatever_context("failed to describe images")?;
 
     let image = response

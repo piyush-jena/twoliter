@@ -17,6 +17,7 @@ base64.workspace = true
 bit_field.workspace = true
 clap = { workspace = true, features = ["derive"] }
 coldsnap = { workspace = true, features = ["aws-sdk-rust-rustls"] }
+error-utils.workspace = true
 ext4-view.workspace = true
 fatfs.workspace = true
 flate2 = { workspace = true, features = ["zlib"] }
