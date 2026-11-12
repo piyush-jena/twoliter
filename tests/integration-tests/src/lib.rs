@@ -10,6 +10,7 @@ mod advisory_checker;
 mod appinventory;
 mod guest_images_helper;
 mod imghelper;
+mod pcr;
 mod twoliter_build;
 mod twoliter_update;
 mod variant_build;

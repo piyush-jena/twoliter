@@ -2888,6 +2888,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 
 [[package]]
+name = "lz4_flex"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
+dependencies = [
+ "twox-hash",
+]
+
+[[package]]
 name = "lzma-rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5149,11 +5158,13 @@ dependencies = [
  "krane-bundle",
  "lazy_static",
  "log",
+ "lz4_flex",
  "maplit",
  "mockall",
  "oci-cli-wrapper",
  "olpc-cjson",
  "path-absolutize",
+ "pcrsys",
  "semver",
  "serde",
  "serde_json",

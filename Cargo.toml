@@ -73,7 +73,7 @@ nutype = "0.5"
 oci-cli-wrapper = { version = "0.1", path = "tools/oci-cli-wrapper" }
 parse-datetime = { version = "0.1", path = "tools/parse-datetime" }
 path-absolutize = "3.1"
-pcrsys = { version = "0.1", path = "tools/pcrsys", artifact = [ "bin:pcrsys" ] }
+pcrsys = { version = "0.1", path = "tools/pcrsys", lib = true, artifact = [ "bin:pcrsys" ] }
 pipesys = { version = "0.1", path = "tools/pipesys", lib = true, artifact = [ "bin:pipesys" ] }
 pubsys = { version = "0.1", path = "tools/pubsys", artifact = [ "bin:pubsys" ] }
 pubsys-config = { version = "0.1", path = "tools/pubsys-config" }
@@ -147,6 +147,7 @@ jiff = { version = "0.2", features = ["serde"] }
 lazy_static = "1"
 libc = "0.2"
 log = "0.4"
+lz4_flex = "0.14"
 lzma-rs = "0.3"
 maplit = "1"
 minicbor-serde = { version = "0.7", features = ["std"] }
